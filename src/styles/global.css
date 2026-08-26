@@ -1,0 +1,370 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@plugin "@tailwindcss/typography";
+
+/* ── Fonts ──────────────────────────────────────────────────────────────
+   Both self-hosted (no CDN request from a visitor's browser). VT323 is the
+   tinotools house face, used for all "cool" (CRT) chrome and copy. Literata
+   is Google's variable serif built specifically for long-form on-screen
+   reading (used by Google Play Books) — the body face for "readable" mode. */
+@font-face {
+  font-family: 'VT323';
+  src: url('/fonts/VT323-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Literata';
+  src: url('/fonts/Literata-Variable.woff2') format('woff2-variations');
+  font-weight: 200 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Literata';
+  src: url('/fonts/Literata-Italic-Variable.woff2') format('woff2-variations');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-mono: 'VT323', ui-monospace, monospace;
+  --font-serif: 'Literata', Georgia, 'Times New Roman', serif;
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-link: var(--link);
+  /* Square corners everywhere except rounded-full (pills/switches/avatars),
+     matching tinotools' flattened radius scale. */
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
+  --radius-4xl: 0px;
+}
+
+/* ── Theme model ────────────────────────────────────────────────────────
+   Three independent axes, each its own localStorage key and its own
+   data-attribute on <html> — not one combined enum:
+     data-aesthetic  "cool" | "readable"   (localStorage: aesthetic)
+     data-brightness "dark" | "light"      (localStorage: brightness)
+     data-phosphor   "green" | "amber"     (localStorage: phosphor — only
+                                             visually distinct while cool)
+   readable mode ignores data-phosphor entirely; its light/dark pair is a
+   warm-paper palette, not a phosphor colour. */
+:root {
+  --radius: 0;
+}
+
+/* cool / dark / green — tinotools default */
+:root[data-aesthetic="cool"][data-brightness="dark"][data-phosphor="green"] {
+  --background: #050a05;
+  --foreground: #33ff66;
+  --card: #0b140b;
+  --card-foreground: #33ff66;
+  --popover: #0b140b;
+  --popover-foreground: #33ff66;
+  --primary: #33ff66;
+  --primary-foreground: #041006;
+  --secondary: #0f2013;
+  --secondary-foreground: #7dffa0;
+  --muted: #0c180d;
+  --muted-foreground: #4f9f6a;
+  --accent: #0f2013;
+  --accent-foreground: #7dffa0;
+  --destructive: #ff3355;
+  --border: #1f4d2b;
+  --input: #1f4d2b;
+  --ring: #33ff66;
+  --link: #33ff66;
+  color-scheme: dark;
+}
+
+/* cool / dark / amber — opt-in second phosphor */
+:root[data-aesthetic="cool"][data-brightness="dark"][data-phosphor="amber"] {
+  --background: #140d02;
+  --foreground: #ffb000;
+  --card: #1c1305;
+  --card-foreground: #ffb000;
+  --popover: #1c1305;
+  --popover-foreground: #ffb000;
+  --primary: #ffb000;
+  --primary-foreground: #140d02;
+  --secondary: #2b1d08;
+  --secondary-foreground: #ffcc55;
+  --muted: #21160a;
+  --muted-foreground: #b8802a;
+  --accent: #2b1d08;
+  --accent-foreground: #ffcc55;
+  --destructive: #ff4433;
+  --border: #4d3313;
+  --input: #4d3313;
+  --ring: #ffb000;
+  --link: #ffb000;
+  color-scheme: dark;
+}
+
+/* cool / light / green — blog-only deviation from the tinotools style guide
+   (which keeps CRT dark-only); phosphor-on-glass rather than phosphor-on-tube. */
+:root[data-aesthetic="cool"][data-brightness="light"][data-phosphor="green"] {
+  --background: #eaf5ec;
+  --foreground: #0b3d1e;
+  --card: #dcefe0;
+  --card-foreground: #0b3d1e;
+  --popover: #dcefe0;
+  --popover-foreground: #0b3d1e;
+  --primary: #146b34;
+  --primary-foreground: #eaf5ec;
+  --secondary: #cbe6d1;
+  --secondary-foreground: #0f4a24;
+  --muted: #d3ecd8;
+  --muted-foreground: #3f7a54;
+  --accent: #cbe6d1;
+  --accent-foreground: #0f4a24;
+  --destructive: #c81e3a;
+  --border: #a9d4b3;
+  --input: #a9d4b3;
+  --ring: #146b34;
+  --link: #146b34;
+  color-scheme: light;
+}
+
+/* cool / light / amber — same glass treatment, amber phosphor */
+:root[data-aesthetic="cool"][data-brightness="light"][data-phosphor="amber"] {
+  --background: #fbf3e2;
+  --foreground: #6b4400;
+  --card: #f3e6c8;
+  --card-foreground: #6b4400;
+  --popover: #f3e6c8;
+  --popover-foreground: #6b4400;
+  --primary: #8a5a00;
+  --primary-foreground: #fbf3e2;
+  --secondary: #ead9ad;
+  --secondary-foreground: #6b4400;
+  --muted: #f0e2bd;
+  --muted-foreground: #96703a;
+  --accent: #ead9ad;
+  --accent-foreground: #6b4400;
+  --destructive: #b8241f;
+  --border: #d9c08a;
+  --input: #d9c08a;
+  --ring: #8a5a00;
+  --link: #8a5a00;
+  color-scheme: light;
+}
+
+/* readable / dark — warm paper, not phosphor */
+:root[data-aesthetic="readable"][data-brightness="dark"] {
+  --background: #1a1a18;
+  --foreground: #e8e4d8;
+  --card: #201f1c;
+  --card-foreground: #e8e4d8;
+  --popover: #201f1c;
+  --popover-foreground: #e8e4d8;
+  --primary: #8fae72;
+  --primary-foreground: #1a1a18;
+  --secondary: #2a2925;
+  --secondary-foreground: #e8e4d8;
+  --muted: #242320;
+  --muted-foreground: #a19d8e;
+  --accent: #2a2925;
+  --accent-foreground: #e8e4d8;
+  --destructive: #e0685a;
+  --border: #37352f;
+  --input: #37352f;
+  --ring: #8fae72;
+  --link: #8fae72;
+  color-scheme: dark;
+}
+
+/* readable / light — warm paper, default reading palette */
+:root[data-aesthetic="readable"][data-brightness="light"] {
+  --background: #f4f1ea;
+  --foreground: #2a2620;
+  --card: #ece7db;
+  --card-foreground: #2a2620;
+  --popover: #ece7db;
+  --popover-foreground: #2a2620;
+  --primary: #4a5d3a;
+  --primary-foreground: #f4f1ea;
+  --secondary: #e3ddcc;
+  --secondary-foreground: #2a2620;
+  --muted: #e8e2d3;
+  --muted-foreground: #6b6555;
+  --accent: #e3ddcc;
+  --accent-foreground: #2a2620;
+  --destructive: #a8352a;
+  --border: #d8d0bc;
+  --input: #d8d0bc;
+  --ring: #4a5d3a;
+  --link: #4a5d3a;
+  color-scheme: light;
+}
+
+@layer base {
+  html {
+    /* VT323 has a small apparent x-height at 1:1 — scale the rem baseline up
+       so cool-mode text stays legible without touching every text utility.
+       Literata needs no such correction. */
+    font-size: 100%;
+  }
+  html[data-aesthetic="cool"] {
+    font-size: 118%;
+  }
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-mono);
+  }
+  html[data-aesthetic="readable"] body {
+    font-family: var(--font-serif);
+    line-height: 1.7;
+  }
+  a {
+    color: var(--link);
+  }
+  /* Glow is a CRT identity marker — cool mode only, never in readable mode. */
+  html[data-aesthetic="cool"] h1,
+  html[data-aesthetic="cool"] h2,
+  html[data-aesthetic="cool"] h3 {
+    text-shadow: 0 0 8px color-mix(in oklch, var(--foreground) 45%, transparent);
+  }
+}
+
+/* ── CRT tube effects — cool mode only, fully absent in readable mode ─────
+   Static scanlines always show while cool (not motion). Flicker is a slow,
+   low-amplitude brightness pulse, dropped entirely under reduced-motion. */
+html[data-aesthetic="cool"] body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgb(0 0 0 / 0.09) 0px,
+    rgb(0 0 0 / 0.09) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html[data-aesthetic="cool"] body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background: var(--foreground);
+    opacity: 0;
+    animation: crt-flicker 6.5s infinite;
+  }
+}
+
+@keyframes crt-flicker {
+  0%, 96%, 100% { opacity: 0; }
+  97% { opacity: 0.025; }
+  98% { opacity: 0; }
+  98.5% { opacity: 0.018; }
+}
+
+/* Blinking terminal cursor after a wordmark. Static (visible) under
+   reduced-motion instead of disappearing. Cool mode only. */
+.crt-cursor {
+  display: none;
+}
+html[data-aesthetic="cool"] .crt-cursor {
+  display: inline-block;
+}
+@media (prefers-reduced-motion: no-preference) {
+  html[data-aesthetic="cool"] .crt-cursor {
+    animation: crt-cursor-blink 1s steps(1) infinite;
+  }
+}
+@keyframes crt-cursor-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+/* Flush segmented option groups (theme toggles use this). */
+@layer components {
+  .segmented {
+    display: grid;
+    gap: 1px;
+    background-color: var(--border);
+    border: 1px solid var(--border);
+  }
+  .segmented > * {
+    border: 0 !important;
+    border-radius: 0 !important;
+  }
+}
+
+/* ── Reading-mode prose ────────────────────────────────────────────────
+   Comfort measure and rhythm for post bodies. Applied via the `.prose`
+   class (typography plugin) on post content when data-aesthetic=readable. */
+html[data-aesthetic="readable"] .prose {
+  max-width: 70ch;
+  line-height: 1.75;
+  --tw-prose-body: var(--foreground);
+  --tw-prose-headings: var(--foreground);
+  --tw-prose-links: var(--link);
+  --tw-prose-bold: var(--foreground);
+  --tw-prose-quotes: var(--muted-foreground);
+  --tw-prose-quote-borders: var(--border);
+  --tw-prose-code: var(--foreground);
+  --tw-prose-pre-bg: var(--muted);
+  --tw-prose-pre-code: var(--foreground);
+  --tw-prose-hr: var(--border);
+  --tw-prose-th-borders: var(--border);
+  --tw-prose-td-borders: var(--border);
+}
+html[data-aesthetic="cool"] .prose {
+  max-width: 75ch;
+  --tw-prose-body: var(--foreground);
+  --tw-prose-headings: var(--foreground);
+  --tw-prose-links: var(--link);
+  --tw-prose-bold: var(--foreground);
+  --tw-prose-quotes: var(--muted-foreground);
+  --tw-prose-quote-borders: var(--border);
+  --tw-prose-code: var(--foreground);
+  --tw-prose-pre-bg: var(--muted);
+  --tw-prose-pre-code: var(--foreground);
+  --tw-prose-hr: var(--border);
+  --tw-prose-th-borders: var(--border);
+  --tw-prose-td-borders: var(--border);
+}
+
+/* In-browser media playback inside posts (audio/video uploads). */
+.post-media {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 1.5em 0;
+  border: 1px solid var(--border);
+  background: var(--card);
+}

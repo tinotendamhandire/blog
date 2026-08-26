@@ -1,0 +1,67 @@
+---
+import '../styles/global.css';
+import ThemeControls from '../components/ThemeControls.svelte';
+import FirstVisitModal from '../components/FirstVisitModal.svelte';
+
+interface Props {
+  title: string;
+  description?: string;
+  /** Post pages default to readable mode on an unanswered first visit. */
+  isPostPage?: boolean;
+}
+
+const { title, description, isPostPage = false } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en" data-post-page={isPostPage ? 'true' : 'false'}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Every page individually — not just robots.txt — in case something
+         links to it out-of-band anyway. -->
+    <meta name="robots" content="noindex,nofollow" />
+    <title>{title}</title>
+    {description && <meta name="description" content={description} />}
+    <script is:inline>
+      (function () {
+        try {
+          var html = document.documentElement;
+          var isPost = html.getAttribute('data-post-page') === 'true';
+          var aesthetic = localStorage.getItem('aesthetic');
+          var brightness = localStorage.getItem('brightness');
+          var phosphor = localStorage.getItem('phosphor') || 'green';
+
+          if (!aesthetic) {
+            // No explicit choice yet (first-visit modal hasn't been
+            // answered) — page-type default, per-post pages read comfortably
+            // even before anyone has decided anything.
+            aesthetic = isPost ? 'readable' : 'cool';
+          }
+          if (!brightness) {
+            if (aesthetic === 'readable') {
+              brightness =
+                window.matchMedia &&
+                window.matchMedia('(prefers-color-scheme: dark)').matches
+                  ? 'dark'
+                  : 'light';
+            } else {
+              // Cool/CRT never infers from OS colour-scheme — dark until an
+              // explicit choice says otherwise.
+              brightness = 'dark';
+            }
+          }
+
+          html.setAttribute('data-aesthetic', aesthetic);
+          html.setAttribute('data-brightness', brightness);
+          html.setAttribute('data-phosphor', phosphor);
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <FirstVisitModal client:load />
+    <slot />
+    <ThemeControls client:load />
+  </body>
+</html>

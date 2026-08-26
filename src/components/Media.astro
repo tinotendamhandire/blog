@@ -1,0 +1,33 @@
+---
+// In-browser audio/video playback for uploaded files inside posts, e.g.:
+//   <Media src="https://blog.tinotenda.xyz/files/abc123" kind="video" />
+interface Props {
+  src: string;
+  kind: 'video' | 'audio';
+  caption?: string;
+}
+
+const { src, kind, caption } = Astro.props;
+---
+
+<figure class="post-media-figure">
+  {
+    kind === 'video' ? (
+      <video class="post-media" src={src} controls preload="metadata" />
+    ) : (
+      <audio class="post-media" src={src} controls preload="metadata" />
+    )
+  }
+  {caption && <figcaption>{caption}</figcaption>}
+</figure>
+
+<style>
+  .post-media-figure {
+    margin: 1.5em 0;
+  }
+  figcaption {
+    margin-top: 0.4em;
+    font-size: 0.85em;
+    color: var(--muted-foreground);
+  }
+</style>

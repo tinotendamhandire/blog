@@ -1,0 +1,46 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="blog.tinotenda.xyz">
+  <main class="home">
+    <div class="mark" aria-hidden="true">&gt;</div>
+    <h1 class="wordmark">blog.tinotenda.xyz<span class="crt-cursor">_</span></h1>
+    <p class="tagline">
+      Nothing here is listed. If you have a link, it works. If you don't,
+      there's nothing to browse.
+    </p>
+  </main>
+</Layout>
+
+<style>
+  .home {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 2rem;
+    gap: 1.25rem;
+  }
+  .mark {
+    width: 3rem;
+    height: 3rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    font-size: 1.5rem;
+    line-height: 1;
+  }
+  .wordmark {
+    margin: 0;
+    font-size: 1.5rem;
+  }
+  .tagline {
+    max-width: 40ch;
+    color: var(--muted-foreground);
+    margin: 0;
+  }
+</style>
