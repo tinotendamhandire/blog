@@ -1,0 +1,44 @@
+# file-host + admin for blog.tinotenda.xyz. The Astro blog itself is not
+# here — it's a static export deployed to Cloudflare Pages, not a container.
+#
+# Run standalone from this directory (`docker compose up -d --build`), or
+# copy these two `services:` entries into the box's existing compose file
+# alongside tinotools-app/convertx/metube/crafty — either works, they don't
+# collide with anything as long as the ports below stay free.
+#
+# Ports are bound to 127.0.0.1 only: nothing here is meant to be reachable
+# except through the cloudflared tunnel already running on the box (see
+# file-host/README.md for the tunnel ingress rules) or from other
+# containers on this compose network.
+
+services:
+  file-host:
+    build: ./file-host
+    restart: unless-stopped
+    environment:
+      UPLOAD_SECRET: ${UPLOAD_SECRET}
+      PUBLIC_BASE_URL: https://blog.tinotenda.xyz
+    volumes:
+      - file-host-data:/app/data
+    ports:
+      - "127.0.0.1:3401:3000"
+
+  admin:
+    build: ./admin
+    restart: unless-stopped
+    depends_on:
+      - file-host
+    environment:
+      ADMIN_SECRET: ${ADMIN_SECRET}
+      FILE_HOST_URL: http://file-host:3000
+      FILE_HOST_UPLOAD_SECRET: ${UPLOAD_SECRET}
+    volumes:
+      # bind mount, not a named volume — this needs to be the actual
+      # checkout's content directory so what admin writes is what you
+      # `git add` and push, not content trapped inside a docker volume.
+      - ./src/content/notes:/app/content
+    ports:
+      - "127.0.0.1:3100:3100"
+
+volumes:
+  file-host-data:
