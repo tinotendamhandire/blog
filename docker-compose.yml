@@ -9,17 +9,19 @@
 # alongside tinotools-app/convertx/metube/crafty — either works, they don't
 # collide with anything as long as the ports below stay free.
 #
-# Ports are bound to 127.0.0.1 only: nothing here is meant to be reachable
-# except through the cloudflared tunnel already running on the box (see
-# DEPLOY.md for the tunnel ingress rules) or from other containers on this
-# compose network.
+# Ports publish on all interfaces (0.0.0.0), matching tinotools/convertx/
+# etc. — cloudflared runs on a different machine on the LAN and reaches
+# these by IP (192.168.4.199:<port>), so localhost-only binding isn't an
+# option here. Same trust model as the rest of the box: reachable on the
+# LAN, not exposed beyond it, actual public entry is only ever through the
+# tunnel (see DEPLOY.md for the ingress rules).
 
 services:
   blog:
     build: .
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8090:8080"
+      - "8090:8080"
 
   file-host:
     build: ./file-host
@@ -30,7 +32,7 @@ services:
     volumes:
       - file-host-data:/app/data
     ports:
-      - "127.0.0.1:3401:3000"
+      - "3401:3000"
 
   admin:
     build: ./admin
@@ -47,7 +49,7 @@ services:
       # `git add` and push, not content trapped inside a docker volume.
       - ./src/content/notes:/app/content
     ports:
-      - "127.0.0.1:3100:3100"
+      - "3100:3100"
 
 volumes:
   file-host-data:

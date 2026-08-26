@@ -8,11 +8,16 @@ rule can't point at a public/Cloudflare-fronted origin like `*.pages.dev`
 in the first place (that's the "DNS points to prohibited IP" error) — so
 the static build is just served locally too, same as the other two.
 
-| service   | what it is                                  | port (localhost) |
-|-----------|----------------------------------------------|-------------------|
-| `blog`    | static Astro build, served by nginx           | 8090              |
-| `file-host` | upload/serve backend                        | 3401              |
-| `admin`   | git-backed post editor UI                     | 3100              |
+`cloudflared` runs on a different machine on the LAN than these
+containers, not on the docker host itself — so routing goes by the
+docker host's LAN IP (`192.168.4.199` below; adjust if it ever changes —
+a static DHCP reservation for that box avoids this silently breaking).
+
+| service   | what it is                                  | port |
+|-----------|----------------------------------------------|------|
+| `blog`    | static Astro build, served by nginx           | 8090 |
+| `file-host` | upload/serve backend                        | 3401 |
+| `admin`   | git-backed post editor UI                     | 3100 |
 
 ## 1. Get the code there
 
@@ -39,41 +44,52 @@ docker compose up -d --build
 Same pattern as the other containers already on the box
 (`tinotools-app`, `convertx`, `metube`, `crafty`) — this can run standalone
 from this directory, or you can copy the three `services:` entries out of
-`docker-compose.yml` into that box's existing compose file instead.
-Everything binds to `127.0.0.1` only; nothing here is meant to be reachable
-except through the tunnel.
+`docker-compose.yml` into that box's existing compose file instead. Ports
+publish on all interfaces, same as those — reachable on the LAN, not
+exposed beyond it; the only actual public entry point is the tunnel.
 
-Check all three came up clean:
+Check all three came up clean, first locally on the box, then from
+wherever `cloudflared` actually runs (the second is the check that
+matters — a pass on localhost but a fail from the tunnel machine is
+exactly the "works here, 502 through Cloudflare" symptom):
 
 ```bash
 docker compose ps
-curl -sI http://localhost:8090/                 # expect 200, X-Robots-Tag header
-curl -s  http://localhost:3401/files/nope        # expect 404, not a connection error
-curl -sI http://localhost:3100/admin/            # expect 200
+curl -sI http://localhost:8090/                        # expect 200, X-Robots-Tag header
+curl -s  http://localhost:3401/files/nope               # expect 404, not a connection error
+curl -sI http://localhost:3100/admin/                   # expect 200
+
+# from the cloudflared machine instead:
+curl -sI http://192.168.4.199:8090/
+curl -s  http://192.168.4.199:3401/files/nope
+curl -sI http://192.168.4.199:3100/admin/
 ```
 
 ## 4. Wire up the tunnel
 
-Add to your `cloudflared` `config.yml` — this hostname's DNS stays exactly
-as it already is (a CNAME to the tunnel); everything below is routing
-inside `cloudflared`, not a DNS change:
+You're managing this tunnel through the Zero Trust dashboard's **Networks
+→ Tunnels → your tunnel → Public Hostname** tab, not a local `config.yml`
+— add three entries there, all under `blog.tinotenda.xyz`:
 
-```yaml
-ingress:
-  - hostname: blog.tinotenda.xyz
-    path: ^/files/.*
-    service: http://localhost:3401
-  - hostname: blog.tinotenda.xyz
-    path: ^/admin/.*
-    service: http://localhost:3100
-  - hostname: blog.tinotenda.xyz
-    service: http://localhost:8090
-  - service: http_status:404
-```
+| Path        | Service                        |
+|-------------|---------------------------------|
+| `files/*`   | `http://192.168.4.199:3401`     |
+| `admin/*`   | `http://192.168.4.199:3100`     | 
+| *(blank — catchall)* | `http://192.168.4.199:8090` |
 
-Then `cloudflared tunnel ingress validate` and restart the tunnel service.
-Don't touch Cloudflare Pages at all for this project — it isn't part of
-the deploy.
+Put the catchall entry **last** — Public Hostname entries are matched in
+order, so the two specific paths need to come before the blank one or it
+swallows everything first. Use the docker host's actual LAN IP, not
+`localhost` — `cloudflared` runs on a different machine here, so
+`localhost` from its perspective is itself, not the docker host (this was
+the whole cause of the earlier "works locally, 502 through Cloudflare"
+symptom — the services were bound to `127.0.0.1` and unreachable from
+another machine at all, regardless of what hostname was used to reach
+them).
+
+DNS for `blog.tinotenda.xyz` stays exactly as it already is — a CNAME to
+the tunnel, untouched by any of this. Don't touch Cloudflare Pages at all
+for this project either — it isn't part of the deploy.
 
 ## Publishing a new post or a change
 
