@@ -20,28 +20,13 @@ npm run dev
 
 ## Deploy
 
-Same pattern as the other containers already on the box
-(`tinotools-app`, `convertx`, `metube`, `crafty`): build the image, run it
-as one more `docker-compose` service, mount a volume at `/app/data`.
-
-```yaml
-# add alongside the other services in the box's existing docker-compose.yml
-services:
-  file-host:
-    build: ./file-host
-    restart: unless-stopped
-    environment:
-      UPLOAD_SECRET: ${FILE_HOST_UPLOAD_SECRET}
-      PUBLIC_BASE_URL: https://blog.tinotenda.xyz
-      PORT: 3401
-    ports:
-      - "3401:3401" # or omit + join the tunnel's docker network directly
-    volumes:
-      - file-host-data:/app/data
-
-volumes:
-  file-host-data:
-```
+Build/run this alongside `admin` via the root `docker-compose.yml` (see
+`../docker-compose.yml` and `../.env.example`) — either standalone
+(`docker compose up -d --build` from the repo root) or by copying its
+`services:` entry into the box's existing compose file next to
+`tinotools-app`/`convertx`/`metube`/`crafty`. Both containers publish to
+`127.0.0.1` only; nothing here is meant to be reachable except through the
+tunnel or from sibling containers.
 
 Since everything runs through `cloudflared`, routing is a `cloudflared`
 ingress rule, not a Caddy/nginx vhost. The tunnel can point one path at
@@ -66,6 +51,17 @@ ingress:
     service: https://<your-pages-project>.pages.dev
   - service: http_status:404
 ```
+
+**Don't also add `blog.tinotenda.xyz` as a custom domain in the Cloudflare
+Pages dashboard.** Pages' custom-domain flow wants to own that hostname's
+DNS record (a CNAME to Pages), which collides with the DNS you already
+have pointed at the tunnel — you only need one of them to own the
+hostname, and it should be the tunnel, since it's the thing routing
+`/files` and `/admin` too. Skip the custom-domain step in Pages entirely;
+just grab the project's own `<project>.pages.dev` URL from its dashboard
+after the first deploy and use *that* in the ingress rule above. DNS never
+changes — the tunnel is the only thing that ever owns
+`blog.tinotenda.xyz`.
 
 Uploading is done from the admin UI at `/admin` (see `../admin`) — it
 proxies to this service's upload endpoint using server-side-only
