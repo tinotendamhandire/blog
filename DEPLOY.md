@@ -91,22 +91,54 @@ DNS for `blog.tinotenda.xyz` stays exactly as it already is — a CNAME to
 the tunnel, untouched by any of this. Don't touch Cloudflare Pages at all
 for this project either — it isn't part of the deploy.
 
-## Publishing a new post or a change
+## 5. CI: auto-deploy on push to main
 
-There's no CI rebuild-on-push here (that was the Pages part, and it's
-gone). After editing via `/admin` or committing directly:
+`.github/workflows/build.yml` runs `npm run build` on every push and PR,
+on GitHub's own runners — pure validation, never touches the box.
+`.github/workflows/deploy.yml` runs only on a push to `main`, on a
+**self-hosted** runner registered on this box, and does exactly the two
+commands from step 3 above: `git pull` then `docker compose up -d --build`
+against `/opt/tools/blog` specifically (not the runner's own throwaway
+checkout — that's why it skips `actions/checkout`).
 
-```bash
-cd blog
-git pull                        # if the change came from admin on a
-                                 # different checkout, or your own machine
-docker compose up -d --build blog
-```
+Deploy is deliberately scoped to `push` on `main`, never `pull_request` —
+a self-hosted runner triggered by PRs would let anyone who can open one
+run code on this box. Pushing to `main` already requires write access to
+the repo, so that's the only thing that can trigger it.
 
-The `blog` image bakes `dist/` in at build time rather than mounting it
-(so the container is a self-contained, reproducible artifact) — that
-means a plain `restart` won't pick up new content, `--build` is required
-every time.
+**Register the runner once:**
+
+1. GitHub repo → **Settings → Actions → Runners → New self-hosted
+   runner**, choose Linux/x64, follow the download + `./config.sh`
+   commands it shows you (the token in that command is single-use and
+   time-limited, so run it live rather than saving it).
+2. When `config.sh` asks for labels, add `blog-box` (matches
+   `runs-on: [self-hosted, blog-box]` in the workflow) — this avoids the
+   `main` branch accidentally deploying to some *other* self-hosted runner
+   if you ever register one elsewhere.
+3. Install it as a persistent service so it survives reboots, and make
+   sure it runs as a user in the `docker` group (whatever user you
+   normally run `docker compose` as):
+   ```bash
+   sudo ./svc.sh install
+   sudo ./svc.sh start
+   ```
+
+After that, pushing to `main` — including a merge of whatever `/admin`
+wrote once you commit and push it — rebuilds and restarts all three
+containers automatically. Two safety properties worth knowing:
+
+- If `npm run build` would fail, `docker compose up -d --build` fails at
+  the image-build step too (the Dockerfile runs the same build) — it
+  never reaches `up`, so the **currently running containers are left
+  alone**. A broken push doesn't take the site down, it just fails to
+  deploy.
+- If you've drafted a post via `/admin` on the box without committing it
+  yet, and then push an unrelated change from elsewhere, `git pull
+  --ff-only` can refuse with "commit your changes or stash them" if that
+  same file's involved. That's intentional friction, not a bug — commit
+  or stash the box's local changes before pushing something else into the
+  same file.
 
 Draft posts (`draft: true`) never make it into `dist/` in the first place,
-so there's no risk of a half-written post going live from this step.
+so there's no risk of a half-written post going live from any of this.

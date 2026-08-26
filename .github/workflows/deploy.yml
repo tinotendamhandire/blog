@@ -1,0 +1,25 @@
+name: deploy
+
+# Only ever triggered by a push to main — deliberately not pull_request.
+# This job runs on a self-hosted runner sitting on the actual box; scoping
+# it to main keeps it something only a repo-push-access holder can trigger,
+# not anyone who can open a PR.
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, blog-box]
+    steps:
+      # Deliberately not actions/checkout — the deploy target is the
+      # existing checkout at /opt/tools/blog (where .env already lives),
+      # not the runner's own ephemeral workspace.
+      - name: Pull latest
+        run: git -C /opt/tools/blog pull --ff-only origin main
+      - name: Rebuild and restart
+        run: docker compose --project-directory /opt/tools/blog up -d --build
