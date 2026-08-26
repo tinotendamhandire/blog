@@ -1,0 +1,14 @@
+node_modules
+dist
+.astro
+.git
+tinotools-reference
+
+# sibling services build their own images from their own directories —
+# never pull their .env files or node_modules into this build context
+admin
+file-host
+
+.env
+.env.*
+!.env.example

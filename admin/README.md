@@ -47,25 +47,8 @@ local development.
 
 ## Deploy
 
-Same box, same `docker-compose` pattern as `file-host`:
-
-```yaml
-services:
-  admin:
-    build: ./admin
-    restart: unless-stopped
-    environment:
-      ADMIN_SECRET: ${BLOG_ADMIN_SECRET}
-      FILE_HOST_URL: http://file-host:3000
-      FILE_HOST_UPLOAD_SECRET: ${FILE_HOST_UPLOAD_SECRET}
-    volumes:
-      - /path/to/blog/checkout/src/content/notes:/app/content
-```
-
-Add the matching `cloudflared` ingress rule (see `../file-host/README.md`
-for the full `config.yml` — this is one more `hostname`+`path` entry ahead
-of the `*.pages.dev` fallback, pointing `^/admin/.*` at
-`http://localhost:3100`). `/admin` is unlinked and carries
-`noindex,nofollow` like everything else on the site; it isn't discoverable,
-it just also isn't secret-by-obscurity — the bearer secret is the actual
-gate.
+See `../DEPLOY.md` for the full procedure (all three services, one
+`docker-compose.yml`, the `cloudflared` ingress rules). `/admin` is
+unlinked and carries `noindex,nofollow` like everything else on the site;
+it isn't discoverable, it just also isn't secret-by-obscurity — the bearer
+secret is the actual gate.

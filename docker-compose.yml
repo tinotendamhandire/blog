@@ -1,17 +1,26 @@
-# file-host + admin for blog.tinotenda.xyz. The Astro blog itself is not
-# here — it's a static export deployed to Cloudflare Pages, not a container.
+# blog + file-host + admin for blog.tinotenda.xyz. All three are containers
+# on this box — no Cloudflare Pages. cloudflared's tunnel ingress needs a
+# private origin to point at, and a public *.pages.dev address doesn't
+# qualify (that's the "DNS points to prohibited IP" error), so the static
+# build is served locally too, same as the other two.
 #
 # Run standalone from this directory (`docker compose up -d --build`), or
-# copy these two `services:` entries into the box's existing compose file
+# copy these three `services:` entries into the box's existing compose file
 # alongside tinotools-app/convertx/metube/crafty — either works, they don't
 # collide with anything as long as the ports below stay free.
 #
 # Ports are bound to 127.0.0.1 only: nothing here is meant to be reachable
 # except through the cloudflared tunnel already running on the box (see
-# file-host/README.md for the tunnel ingress rules) or from other
-# containers on this compose network.
+# DEPLOY.md for the tunnel ingress rules) or from other containers on this
+# compose network.
 
 services:
+  blog:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8090:8080"
+
   file-host:
     build: ./file-host
     restart: unless-stopped
