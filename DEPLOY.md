@@ -33,7 +33,10 @@ cp .env.example .env
 openssl rand -hex 32   # run twice, paste each into .env
 ```
 Fill in `UPLOAD_SECRET` and `ADMIN_SECRET` — keep them different from each
-other (a leaked admin secret shouldn't also let someone write files).
+other (a leaked admin secret shouldn't also let someone write files). Also
+set `GITHUB_TOKEN` (a fine-grained PAT scoped to just this repo, Contents:
+read/write — see `admin/README.md`) if you want the Publish button in
+`/admin` to work; without it, Publish 501s but Save still works fine.
 
 ## 3. Build and start all three
 
@@ -136,9 +139,9 @@ the repo, so that's the only thing that can trigger it.
    sudo ./svc.sh start
    ```
 
-After that, pushing to `main` — including a merge of whatever `/admin`
-wrote once you commit and push it — rebuilds and restarts all three
-containers automatically. Two safety properties worth knowing:
+After that, pushing to `main` — including whatever `/admin`'s **Publish**
+button pushes directly — rebuilds and restarts all three containers
+automatically. Two safety properties worth knowing:
 
 - If `npm run build` would fail, `docker compose up -d --build` fails at
   the image-build step too (the Dockerfile runs the same build) — it

@@ -48,11 +48,11 @@ services:
       ADMIN_SECRET: ${ADMIN_SECRET}
       FILE_HOST_URL: http://file-host:3000
       FILE_HOST_UPLOAD_SECRET: ${UPLOAD_SECRET}
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
     volumes:
-      # bind mount, not a named volume — this needs to be the actual
-      # checkout's content directory so what admin writes is what you
-      # `git add` and push, not content trapped inside a docker volume.
-      - ./src/content/notes:/app/content
+      # the whole repo, not just the content dir — the Publish button runs
+      # git add/commit/push against it, which needs .git to be reachable
+      - .:/app/repo
     ports:
       - "3100:3100"
 

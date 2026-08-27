@@ -141,6 +141,7 @@
 
     <div class="actions">
       <button id="save-btn">save</button>
+      <button id="publish-btn" class="secondary">publish (commit + push)</button>
       <button id="delete-btn" class="danger" style="display:none;">delete</button>
       <button id="logout-btn" class="secondary">log out</button>
     </div>
@@ -241,11 +242,11 @@
 
   $('new-btn').addEventListener('click', clearEditor);
 
-  $('save-btn').addEventListener('click', async () => {
+  async function doSave() {
     const slug = $('f-slug').value.trim();
     if (!/^[a-z0-9-]{1,80}$/.test(slug)) {
       $('status').textContent = 'slug must be lowercase letters, numbers, hyphens only';
-      return;
+      return null;
     }
     const payload = {
       title: $('f-title').value.trim(),
@@ -260,13 +261,33 @@
       body: JSON.stringify(payload),
     });
     if (res.ok) {
-      $('status').textContent = `saved. remember to commit + push the content dir to publish.`;
+      $('status').textContent = 'saved (not published yet).';
       currentSlug = slug;
       $('f-slug').disabled = true;
       $('delete-btn').style.display = 'inline-block';
       await loadPosts();
+      return slug;
     } else {
       $('status').textContent = `save failed: ${await res.text()}`;
+      return null;
+    }
+  }
+
+  $('save-btn').addEventListener('click', doSave);
+
+  $('publish-btn').addEventListener('click', async () => {
+    const slug = await doSave();
+    if (!slug) return;
+    $('status').textContent = 'publishing…';
+    try {
+      const res = await api(`/admin/api/publish/${slug}`, { method: 'POST' });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      $('status').textContent = data.published
+        ? 'published — committed and pushed, deploy running now.'
+        : 'nothing to publish (already up to date).';
+    } catch (err) {
+      $('status').textContent = `publish failed: ${err.message}`;
     }
   });
 

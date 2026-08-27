@@ -1,13 +1,16 @@
 // Git-backed post editor + admin, for blog.tinotenda.xyz/admin. Writes
 // directly into the Astro content collection directory (bind-mounted from
 // the box's checkout of the blog repo) — posts are still files in git, this
-// is just a convenience writer, not a CMS database. It does NOT commit or
-// push on its own: that stays a deliberate manual step (see README).
+// is just a convenience writer, not a CMS database. Save and Publish are
+// deliberately separate actions: Save only ever touches the local file,
+// Publish is the one thing that commits and pushes (see README for why
+// that's not automatic).
 
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
 import matter from 'gray-matter';
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 
 const CONTENT_DIR = process.env.CONTENT_DIR || './content';
@@ -15,6 +18,10 @@ const PORT = Number(process.env.PORT || 3100);
 const ADMIN_SECRET = process.env.ADMIN_SECRET;
 const FILE_HOST_URL = process.env.FILE_HOST_URL; // e.g. http://file-host:3000
 const FILE_HOST_UPLOAD_SECRET = process.env.FILE_HOST_UPLOAD_SECRET;
+const REPO_DIR = process.env.REPO_DIR; // e.g. /app/repo — whole repo, for Publish
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+const GIT_AUTHOR_NAME = process.env.GIT_AUTHOR_NAME || 'blog-admin';
+const GIT_AUTHOR_EMAIL = process.env.GIT_AUTHOR_EMAIL || 'admin@blog.tinotenda.xyz';
 
 if (!ADMIN_SECRET) {
   console.error('ADMIN_SECRET env var is required — refusing to start.');
@@ -57,6 +64,10 @@ async function findPostFile(slug) {
     } catch {}
   }
   return null;
+}
+
+function git(args) {
+  return execFileSync('git', ['-C', REPO_DIR, ...args], { encoding: 'utf8' });
 }
 
 const app = new Hono();
@@ -161,6 +172,39 @@ app.delete('/admin/api/posts/:slug', async (c) => {
   if (!file) return c.text('Not found', 404);
   await rm(path.join(CONTENT_DIR, file));
   return c.json({ ok: true });
+});
+
+app.post('/admin/api/publish/:slug', async (c) => {
+  if (!requireAuth(c)) return c.text('Unauthorized', 401);
+  if (!REPO_DIR || !GITHUB_TOKEN) {
+    return c.text('Publish not configured (REPO_DIR/GITHUB_TOKEN missing)', 501);
+  }
+  const slug = c.req.param('slug');
+  if (!SLUG_RE.test(slug)) return c.text('Bad slug', 400);
+  const file = await findPostFile(slug);
+  if (!file) return c.text('Not found', 404);
+
+  // Scoped to this one post's file — publishing shouldn't sweep up some
+  // other half-finished draft that happens to be sitting uncommitted too.
+  const relPath = path.relative(REPO_DIR, path.join(CONTENT_DIR, file));
+
+  try {
+    git(['add', relPath]);
+    const status = git(['status', '--porcelain', '--', relPath]);
+    if (!status.trim()) {
+      return c.json({ ok: true, published: false, message: 'nothing to publish — already up to date' });
+    }
+    git([
+      '-c', `user.name=${GIT_AUTHOR_NAME}`,
+      '-c', `user.email=${GIT_AUTHOR_EMAIL}`,
+      'commit', '-m', `publish: ${slug}`, '--', relPath,
+    ]);
+    const authHeader = `Authorization: Basic ${Buffer.from(`x-access-token:${GITHUB_TOKEN}`).toString('base64')}`;
+    git(['-c', `http.extraheader=${authHeader}`, 'push', 'origin', 'HEAD:main']);
+    return c.json({ ok: true, published: true });
+  } catch (err) {
+    return c.text(`Publish failed: ${err.message}`, 500);
+  }
 });
 
 app.post('/admin/api/upload', async (c) => {
