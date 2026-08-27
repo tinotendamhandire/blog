@@ -31,7 +31,22 @@ function requireAuth(c) {
 }
 
 function stripMediaImport(content) {
-  return content.replace(/^import Media from ['"][^'"]*['"];\s*\n+/, '');
+  // \s* up front tolerates a blank line between frontmatter and the import
+  // (the normal MDX style for hand-written posts) — without it, the strip
+  // silently no-ops on any file that isn't admin's own no-gap output,
+  // leaving the import sitting in the body and duplicating it on save.
+  return content.replace(/^\s*import Media from ['"][^'"]*['"];\s*\n+/, '');
+}
+
+function formatDate(value) {
+  // gray-matter parses an unquoted YAML date (2026-08-26) into a native
+  // Date — String(date) then gives a full localized timestamp string
+  // ("Wed Aug 26 2026 08:00:00 GMT+0800..."), which <input type="date">
+  // silently rejects, loading blank and corrupting the date on next save.
+  // Format explicitly instead; a value already stored as a plain string
+  // (quoted in the frontmatter) passes through untouched.
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return value ? String(value) : '';
 }
 
 async function findPostFile(slug) {
@@ -76,7 +91,7 @@ app.get('/admin/api/posts', async (c) => {
       return {
         slug: file.replace(/\.(mdx|md)$/, ''),
         title: data.title || '(untitled)',
-        date: data.date ? String(data.date) : '',
+        date: formatDate(data.date),
         draft: !!data.draft,
         tags: data.tags || [],
       };
@@ -97,7 +112,7 @@ app.get('/admin/api/posts/:slug', async (c) => {
   return c.json({
     slug,
     title: data.title || '',
-    date: data.date ? String(data.date) : '',
+    date: formatDate(data.date),
     draft: !!data.draft,
     tags: (data.tags || []).join(', '),
     body: stripMediaImport(content).trim(),
