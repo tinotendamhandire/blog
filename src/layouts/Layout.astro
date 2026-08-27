@@ -21,6 +21,9 @@ const { title, description, isPostPage = false } = Astro.props;
     <!-- Every page individually — not just robots.txt — in case something
          links to it out-of-band anyway. -->
     <meta name="robots" content="noindex,nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" sizes="any" />
+    <link rel="apple-touch-icon" href="/apple-icon.png" />
     <title>{title}</title>
     {description && <meta name="description" content={description} />}
     <script is:inline>
