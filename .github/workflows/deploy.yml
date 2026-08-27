@@ -21,5 +21,7 @@ jobs:
       # not the runner's own ephemeral workspace.
       - name: Pull latest
         run: git -C /opt/tools/blog pull --ff-only origin main
+      - name: Prepare clean blog build context
+        run: /opt/tools/blog/scripts/prepare-blog-context.sh
       - name: Rebuild and restart
         run: docker compose --project-directory /opt/tools/blog up -d --build

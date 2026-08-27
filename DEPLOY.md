@@ -38,8 +38,19 @@ other (a leaked admin secret shouldn't also let someone write files).
 ## 3. Build and start all three
 
 ```bash
+./scripts/prepare-blog-context.sh   # regenerates .deploy-context/ from git HEAD
 docker compose up -d --build
 ```
+
+That script exports a clean copy of whatever's actually committed into
+`.deploy-context/`, which is what the `blog` service builds from — not
+this directory directly. That matters because `/admin` writes post files
+straight into `src/content/notes/` here without committing them (see
+`admin/README.md`); if `blog` built from the live checkout, any draft
+sitting there uncommitted would go live the moment *anything* triggered a
+rebuild. Run the script before every manual rebuild of `blog` — the
+deploy workflow does this step automatically, this is only for doing it
+by hand.
 
 Same pattern as the other containers already on the box
 (`tinotools-app`, `convertx`, `metube`, `crafty`) — this can run standalone
@@ -96,10 +107,11 @@ for this project either — it isn't part of the deploy.
 `.github/workflows/build.yml` runs `npm run build` on every push and PR,
 on GitHub's own runners — pure validation, never touches the box.
 `.github/workflows/deploy.yml` runs only on a push to `main`, on a
-**self-hosted** runner registered on this box, and does exactly the two
-commands from step 3 above: `git pull` then `docker compose up -d --build`
-against `/opt/tools/blog` specifically (not the runner's own throwaway
-checkout — that's why it skips `actions/checkout`).
+**self-hosted** runner registered on this box, and does exactly the three
+commands from step 3 above — `git pull`, regenerate `.deploy-context/`,
+`docker compose up -d --build` — against `/opt/tools/blog` specifically
+(not the runner's own throwaway checkout — that's why it skips
+`actions/checkout`).
 
 Deploy is deliberately scoped to `push` on `main`, never `pull_request` —
 a self-hosted runner triggered by PRs would let anyone who can open one
@@ -139,6 +151,13 @@ containers automatically. Two safety properties worth knowing:
   same file's involved. That's intentional friction, not a bug — commit
   or stash the box's local changes before pushing something else into the
   same file.
+- `.deploy-context/` (step 3) is what actually closes the loop here: an
+  earlier version of this pipeline built `blog` straight from this
+  directory, which meant an uncommitted `/admin` draft could go live the
+  moment *any* unrelated push triggered a rebuild — `docker build`'s
+  `COPY . .` doesn't know or care what git has or hasn't committed. Now
+  `blog` only ever builds from a fresh `git archive HEAD` export, so a
+  post genuinely has to be committed and pushed to be reachable.
 
 Draft posts (`draft: true`) never make it into `dist/` in the first place,
 so there's no risk of a half-written post going live from any of this.

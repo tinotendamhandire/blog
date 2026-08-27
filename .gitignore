@@ -9,5 +9,9 @@ dist/
 .env.*
 !.env.example
 
+# regenerated fresh from git HEAD before every blog image build — never
+# meant to be committed itself
+/.deploy-context/
+
 # os
 .DS_Store

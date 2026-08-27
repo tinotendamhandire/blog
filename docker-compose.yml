@@ -18,7 +18,12 @@
 
 services:
   blog:
-    build: .
+    # Built from a clean git-HEAD export (see scripts/prepare-blog-context.sh),
+    # not this directory directly — the live checkout has admin's uncommitted
+    # writes sitting in src/content/notes, and those shouldn't reach the site
+    # just because some other push triggered a rebuild. Run the script before
+    # `up --build`; the deploy workflow does this automatically.
+    build: ./.deploy-context
     restart: unless-stopped
     ports:
       - "8090:8080"
