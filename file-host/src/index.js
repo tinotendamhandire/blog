@@ -1,13 +1,14 @@
 // Drop-a-file-get-a-link host for blog.tinotenda.xyz/files.
-// No directory listing route exists, period — GET /files/<id> is the only
-// way to reach an upload, and <id> is an unguessable nanoid, not sequential
-// or content-derived. POST /files/upload is gated by a shared-secret bearer
-// token so only the site owner can write.
+// No *public* directory listing exists — GET /files/<id> is the only way
+// an anonymous visitor can reach an upload, and <id> is an unguessable
+// nanoid, not sequential or content-derived. GET /files (list) and
+// DELETE /files/<id> exist too, but both require the same bearer secret
+// as uploading — they're for the admin file browser, not public browsing.
 
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { customAlphabet } from 'nanoid';
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
 import { Readable } from 'node:stream';
 import path from 'node:path';
@@ -31,13 +32,14 @@ const genId = customAlphabet(
   12,
 );
 
+function requireAuth(c) {
+  return (c.req.header('authorization') || '') === `Bearer ${UPLOAD_SECRET}`;
+}
+
 const app = new Hono();
 
 app.post('/files/upload', async (c) => {
-  const auth = c.req.header('authorization') || '';
-  if (auth !== `Bearer ${UPLOAD_SECRET}`) {
-    return c.text('Unauthorized', 401);
-  }
+  if (!requireAuth(c)) return c.text('Unauthorized', 401);
 
   const body = await c.req.parseBody();
   const file = body['file'];
@@ -68,6 +70,59 @@ app.post('/files/upload', async (c) => {
 
   const base = PUBLIC_BASE_URL || new URL(c.req.url).origin;
   return c.json({ id, url: `${base}/files/${id}` });
+});
+
+// Authenticated listing for the admin file browser — same secret as
+// upload, never reachable without it. Not the public no-listing route.
+app.get('/files', async (c) => {
+  if (!requireAuth(c)) return c.text('Unauthorized', 401);
+
+  const base = PUBLIC_BASE_URL || new URL(c.req.url).origin;
+  const entries = (await readdir(DATA_DIR)).filter((f) => f.endsWith('.json'));
+  const files = await Promise.all(
+    entries.map(async (entry) => {
+      const id = entry.slice(0, -'.json'.length);
+      let meta;
+      try {
+        meta = JSON.parse(await readFile(path.join(DATA_DIR, entry), 'utf8'));
+      } catch {
+        return null;
+      }
+      let size = 0;
+      try {
+        size = (await stat(path.join(DATA_DIR, meta.storedName))).size;
+      } catch {
+        return null; // sidecar with no matching file — skip rather than lie
+      }
+      return {
+        id,
+        url: `${base}/files/${id}`,
+        originalName: meta.originalName,
+        contentType: meta.contentType,
+        uploadedAt: meta.uploadedAt,
+        size,
+      };
+    }),
+  );
+  const list = files.filter(Boolean).sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt));
+  return c.json(list);
+});
+
+app.delete('/files/:id', async (c) => {
+  if (!requireAuth(c)) return c.text('Unauthorized', 401);
+  const id = c.req.param('id');
+  if (!/^[0-9a-zA-Z]{1,32}$/.test(id)) return c.text('Not found', 404);
+
+  let meta;
+  try {
+    meta = JSON.parse(await readFile(path.join(DATA_DIR, `${id}.json`), 'utf8'));
+  } catch {
+    return c.text('Not found', 404);
+  }
+
+  await rm(path.join(DATA_DIR, meta.storedName), { force: true });
+  await rm(path.join(DATA_DIR, `${id}.json`), { force: true });
+  return c.json({ ok: true });
 });
 
 app.get('/files/:id', async (c) => {

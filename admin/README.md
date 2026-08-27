@@ -39,6 +39,12 @@ rather than automatic.
 - `POST /admin/api/upload` — proxies to `file-host`'s upload endpoint using
   server-side-only credentials, so the browser only ever needs
   `ADMIN_SECRET`.
+- `GET /admin/api/files` / `DELETE /admin/api/files/:id` — the "files
+  already uploaded" panel in the editor: browse and delete anything
+  uploaded through `file-host`, same server-side-credential-only proxy
+  pattern as upload. `file-host` itself still has no *public* listing —
+  these two routes are gated behind `ADMIN_SECRET` same as everything
+  else here.
 
 ## Setting up the publish token
 

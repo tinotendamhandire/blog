@@ -228,6 +228,31 @@ app.post('/admin/api/upload', async (c) => {
   return c.json(await res.json());
 });
 
+app.get('/admin/api/files', async (c) => {
+  if (!requireAuth(c)) return c.text('Unauthorized', 401);
+  if (!FILE_HOST_URL || !FILE_HOST_UPLOAD_SECRET) {
+    return c.text('File host not configured', 501);
+  }
+  const res = await fetch(`${FILE_HOST_URL}/files`, {
+    headers: { Authorization: `Bearer ${FILE_HOST_UPLOAD_SECRET}` },
+  });
+  if (!res.ok) return c.text('Listing failed', 502);
+  return c.json(await res.json());
+});
+
+app.delete('/admin/api/files/:id', async (c) => {
+  if (!requireAuth(c)) return c.text('Unauthorized', 401);
+  if (!FILE_HOST_URL || !FILE_HOST_UPLOAD_SECRET) {
+    return c.text('File host not configured', 501);
+  }
+  const res = await fetch(`${FILE_HOST_URL}/files/${c.req.param('id')}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${FILE_HOST_UPLOAD_SECRET}` },
+  });
+  if (!res.ok) return c.text('Delete failed', 502);
+  return c.json(await res.json());
+});
+
 serve({ fetch: app.fetch, port: PORT }, (info) => {
   console.log(`admin listening on :${info.port}, content dir ${CONTENT_DIR}`);
 });

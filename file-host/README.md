@@ -6,7 +6,14 @@ server-side logic, just static files.
 
 - `POST /files/upload` — `Authorization: Bearer <UPLOAD_SECRET>`, multipart
   field `file`. Returns `{ id, url }`.
-- `GET /files/<id>` — serves the file. No listing route exists anywhere.
+- `GET /files/<id>` — serves the file, **no auth** — this is the one
+  public route, and the entire point of the service.
+- `GET /files` and `DELETE /files/<id>` — same bearer secret as upload.
+  These exist for the admin file browser (see `../admin`), not for public
+  use — there still isn't a route an anonymous visitor can hit to see
+  what's been uploaded. Direct-link-only holds for everyone except
+  whoever already has the upload secret, which was always true for
+  writing; now it's also true for listing and deleting.
 - Storage: local disk under `DATA_DIR` (default `./data`), one file plus a
   `<id>.json` sidecar (original filename + content type) per upload.
 

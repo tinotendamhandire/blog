@@ -94,6 +94,30 @@
   .actions { margin-top: 1.5rem; display: flex; gap: 0.6em; }
   #upload-result { margin-top: 0.6em; word-break: break-all; }
   #status { margin-top: 0.6em; color: var(--muted-foreground); min-height: 1.2em; }
+
+  #files-panel {
+    margin: 0.5em 0 1em;
+    max-height: 16rem;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+  }
+  #files-list { list-style: none; margin: 0; padding: 0; }
+  #files-list li {
+    display: flex;
+    align-items: center;
+    gap: 0.6em;
+    padding: 0.45em 0.6em;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.85em;
+  }
+  #files-list li:last-child { border-bottom: none; }
+  #files-list .fname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #files-list .fmeta { color: var(--muted-foreground); white-space: nowrap; }
+  #files-list button {
+    padding: 0.2em 0.5em;
+    font-size: 0.85em;
+  }
+  #files-empty { padding: 0.6em; color: var(--muted-foreground); font-size: 0.85em; }
 </style>
 </head>
 <body>
@@ -135,6 +159,13 @@
     <label>upload media</label>
     <input type="file" id="f-upload" />
     <div id="upload-result"></div>
+
+    <label>
+      <a href="#" id="files-toggle">files already uploaded &darr;</a>
+    </label>
+    <div id="files-panel" style="display:none;">
+      <ul id="files-list"></ul>
+    </div>
 
     <label>body (markdown/MDX — use &lt;Media src="..." kind="video|audio" /&gt; for uploads)</label>
     <textarea id="f-body"></textarea>
@@ -301,6 +332,77 @@
     }
   });
 
+  function insertSnippet(url, contentType) {
+    const kind = (contentType || '').startsWith('audio/') ? 'audio' : 'video';
+    const snippet = `<Media src="${url}" kind="${kind}" />`;
+    const ta = $('f-body');
+    ta.value += (ta.value.endsWith('\n') || !ta.value ? '' : '\n\n') + snippet + '\n';
+  }
+
+  function humanSize(bytes) {
+    if (bytes < 1024) return `${bytes} B`;
+    const units = ['KB', 'MB', 'GB'];
+    let n = bytes / 1024;
+    let i = 0;
+    while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+    return `${n.toFixed(1)} ${units[i]}`;
+  }
+
+  let filesLoaded = false;
+
+  async function loadFiles() {
+    const list = $('files-list');
+    list.innerHTML = '<li id="files-empty">loading…</li>';
+    try {
+      const res = await api('/admin/api/files');
+      if (!res.ok) throw new Error(await res.text());
+      const files = await res.json();
+      list.innerHTML = '';
+      if (!files.length) {
+        list.innerHTML = '<li id="files-empty">nothing uploaded yet</li>';
+        return;
+      }
+      for (const f of files) {
+        const li = document.createElement('li');
+        const date = f.uploadedAt ? f.uploadedAt.slice(0, 10) : '';
+        li.innerHTML = `
+          <span class="fname" title="${f.originalName}">${f.originalName}</span>
+          <span class="fmeta">${humanSize(f.size)} · ${date}</span>
+        `;
+        const insertBtn = document.createElement('button');
+        insertBtn.textContent = 'insert';
+        insertBtn.addEventListener('click', () => insertSnippet(f.url, f.contentType));
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'secondary';
+        copyBtn.textContent = 'copy';
+        copyBtn.addEventListener('click', () => navigator.clipboard.writeText(f.url));
+        const delBtn = document.createElement('button');
+        delBtn.className = 'danger';
+        delBtn.textContent = 'delete';
+        delBtn.addEventListener('click', async () => {
+          if (!confirm(`Delete "${f.originalName}"? Any post still linking to it will break.`)) return;
+          const dres = await api(`/admin/api/files/${f.id}`, { method: 'DELETE' });
+          if (dres.ok) await loadFiles();
+        });
+        li.append(insertBtn, copyBtn, delBtn);
+        list.appendChild(li);
+      }
+    } catch (err) {
+      list.innerHTML = `<li id="files-empty">failed to load: ${err.message}</li>`;
+    }
+  }
+
+  $('files-toggle').addEventListener('click', async (e) => {
+    e.preventDefault();
+    const panel = $('files-panel');
+    const show = panel.style.display === 'none';
+    panel.style.display = show ? 'block' : 'none';
+    if (show && !filesLoaded) {
+      filesLoaded = true;
+      await loadFiles();
+    }
+  });
+
   $('f-upload').addEventListener('change', async () => {
     const file = $('f-upload').files[0];
     if (!file) return;
@@ -311,14 +413,12 @@
       const res = await api('/admin/api/upload', { method: 'POST', body: fd });
       if (!res.ok) throw new Error(await res.text());
       const { url } = await res.json();
-      const kind = file.type.startsWith('audio/') ? 'audio' : 'video';
-      const snippet = `<Media src="${url}" kind="${kind}" />`;
       $('upload-result').innerHTML = `${url} — <a href="#" id="insert-link">insert into body</a>`;
       $('insert-link').addEventListener('click', (e) => {
         e.preventDefault();
-        const ta = $('f-body');
-        ta.value += (ta.value.endsWith('\n') || !ta.value ? '' : '\n\n') + snippet + '\n';
+        insertSnippet(url, file.type);
       });
+      if (filesLoaded) await loadFiles();
     } catch (err) {
       $('upload-result').textContent = `upload failed: ${err.message}`;
     }
