@@ -119,9 +119,11 @@
     height: 14rem;
     transition: transform 0.4s;
     transform-style: preserve-3d;
+    -webkit-transform-style: preserve-3d;
   }
   .card.flipped .card-inner {
     transform: rotateY(180deg);
+    -webkit-transform: rotateY(180deg);
   }
   .card-face {
     position: absolute;
@@ -133,10 +135,12 @@
     gap: 0.75rem;
     padding: 1.5rem;
     backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
     text-align: center;
   }
   .card-back {
     transform: rotateY(180deg);
+    -webkit-transform: rotateY(180deg);
   }
   .card-label {
     font-size: 0.8rem;

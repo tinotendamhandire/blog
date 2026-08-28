@@ -3,6 +3,17 @@
 
   let { pool } = $props();
 
+  // Compare by business key, never by object reference: Svelte 5's $state
+  // deep-reactivity wraps the same underlying object in different proxy
+  // instances depending on the path it's reached through, so the same
+  // glossary entry reachable both as `current.entry` and as an element of
+  // `current.options` can fail a `===` check even though it's "the same
+  // entry" — confirmed empirically (0/many options ever matched as
+  // correct before this fix). term+category is unique across the dataset.
+  function sameEntry(a, b) {
+    return a.term === b.term && a.category === b.category;
+  }
+
   function buildQuestions() {
     return shuffle(pool).map((entry) => {
       const direction = Math.random() < 0.5 ? 'term-to-def' : 'def-to-term';
@@ -33,7 +44,7 @@
     if (answered) return;
     selected = opt;
     answered = true;
-    if (opt === current.entry) score += 1;
+    if (sameEntry(opt, current.entry)) score += 1;
   }
 
   function next() {
@@ -74,8 +85,8 @@
 
     <div class="options">
       {#each current.options as opt (opt.term + opt.category)}
-        {@const isCorrect = opt === current.entry}
-        {@const isSelected = opt === selected}
+        {@const isCorrect = sameEntry(opt, current.entry)}
+        {@const isSelected = selected !== null && sameEntry(opt, selected)}
         <button
           type="button"
           class="option"
@@ -90,9 +101,9 @@
     </div>
 
     {#if answered}
-      <div class="feedback" class:good={selected === current.entry} class:bad={selected !== current.entry}>
+      <div class="feedback" class:good={sameEntry(selected, current.entry)} class:bad={!sameEntry(selected, current.entry)}>
         <p class="feedback-headline">
-          {selected === current.entry ? 'correct' : 'incorrect'}
+          {sameEntry(selected, current.entry) ? 'correct' : 'incorrect'}
         </p>
         <p class="feedback-def"><strong>{current.entry.term}</strong> — {current.entry.definition}</p>
       </div>
