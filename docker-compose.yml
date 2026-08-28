@@ -44,6 +44,12 @@ services:
     restart: unless-stopped
     depends_on:
       - file-host
+    # Runs as the host user, not the image's default root — Publish writes
+    # git objects and content files into the bind-mounted repo, and if
+    # those land owned by root, the self-hosted deploy runner (which runs
+    # as a normal user) loses write access to its own checkout on the very
+    # next `git pull`. Confirm these match your box with `id -u`/`id -g`.
+    user: "${ADMIN_UID:-1000}:${ADMIN_GID:-1000}"
     environment:
       ADMIN_SECRET: ${ADMIN_SECRET}
       FILE_HOST_URL: http://file-host:3000

@@ -62,6 +62,21 @@ possible — **not** your personal SSH key or a broad classic PAT:
 Without `GITHUB_TOKEN` (and `REPO_DIR`) set, Publish returns `501` and
 Save still works fine — the token is only required for the one endpoint.
 
+## A note on file ownership
+
+In the deployed setup, `admin` runs as the host user (`ADMIN_UID`/
+`ADMIN_GID` in `../.env`, see `../.env.example`), not the image's default
+root. This matters because Save and Publish both write into the
+bind-mounted repo checkout — if that container ran as root, everything it
+touched (`.git/objects`, files under `src/content/notes/`) would end up
+root-owned on the host, and the self-hosted deploy runner (which runs as
+a normal user) would lose write access to its own checkout on the very
+next `git pull`, failing with `insufficient permission for adding an
+object to repository database .git/objects`. If you ever see that error,
+it means something wrote into the repo as root — `sudo chown -R
+<your-user>:<your-user> /opt/tools/blog` fixes existing damage; getting
+`ADMIN_UID`/`ADMIN_GID` right prevents it recurring.
+
 ## Run locally
 
 ```

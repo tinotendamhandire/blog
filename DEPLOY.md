@@ -38,6 +38,16 @@ set `GITHUB_TOKEN` (a fine-grained PAT scoped to just this repo, Contents:
 read/write — see `admin/README.md`) if you want the Publish button in
 `/admin` to work; without it, Publish 501s but Save still works fine.
 
+Also confirm `ADMIN_UID`/`ADMIN_GID` (default `1000`/`1000`) actually
+match the user that owns this checkout — run `id -u` and `id -g` on the
+box to check. This isn't optional cosmetics: `admin` runs as this user
+specifically so that what Publish writes into `.git/` and
+`src/content/notes/` is owned by the same user the deploy runner runs as.
+Get it wrong (or leave `admin` running as the image's default root) and
+the *next* `git pull` fails with `insufficient permission for adding an
+object to repository database .git/objects` — if you hit that, `sudo
+chown -R <your-user>:<your-user> /opt/tools/blog` reclaims it.
+
 ## 3. Build and start all three
 
 ```bash

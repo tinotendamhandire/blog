@@ -11,10 +11,11 @@ RUN npm ci --omit=dev
 COPY src ./src
 COPY public ./public
 
-# The bind-mounted repo is owned by the host user, not this container's
-# (root) user — without this, git refuses every command in it as
-# "dubious ownership" the moment a real volume is mounted at runtime.
-RUN git config --global --add safe.directory /app/repo
+# --system, not --global: this container now runs as a non-root user set
+# at compose runtime (see docker-compose.yml's `user:`), which has no
+# $HOME/.gitconfig of its own — a system-wide (/etc/gitconfig) entry is
+# the only kind that applies no matter which UID actually runs git.
+RUN git config --system --add safe.directory /app/repo
 
 ENV PORT=3100
 ENV CONTENT_DIR=/app/repo/src/content/notes
