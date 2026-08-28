@@ -21,7 +21,7 @@ const dateLabel = post.data.date.toLocaleDateString('en-US', {
 });
 ---
 
-<Layout title={post.data.title} isPostPage={true}>
+<Layout title={post.data.title} defaultReadable={true}>
   <article class="post">
     <h1>{post.data.title}</h1>
     <p class="post-date">{dateLabel}</p>

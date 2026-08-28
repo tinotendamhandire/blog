@@ -1,0 +1,35 @@
+---
+import Layout from '../layouts/Layout.astro';
+import GlossaryTool from '../components/glossary/GlossaryTool.svelte';
+---
+
+<Layout title="English Glossary Study Tool" defaultReadable={true}>
+  <main class="glossary-page">
+    <h1>Glossary Study Tool</h1>
+    <p class="intro">
+      Command words, text types, key concept terms and hinge words for composing-question
+      deconstruction. Switch modes any time — your progress resets when you do.
+    </p>
+    <GlossaryTool client:load />
+  </main>
+</Layout>
+
+<style>
+  .glossary-page {
+    max-width: 44rem;
+    margin: 0 auto;
+    padding: 2.5rem 1.25rem 5rem;
+  }
+  h1 {
+    font-size: 1.6rem;
+    margin: 0 0 0.5rem;
+    text-align: center;
+  }
+  .intro {
+    color: var(--muted-foreground);
+    text-align: center;
+    max-width: 34rem;
+    margin: 0 auto 2rem;
+    line-height: 1.5;
+  }
+</style>

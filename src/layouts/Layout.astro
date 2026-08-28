@@ -6,15 +6,16 @@ import FirstVisitModal from '../components/FirstVisitModal.svelte';
 interface Props {
   title: string;
   description?: string;
-  /** Post pages default to readable mode on an unanswered first visit. */
-  isPostPage?: boolean;
+  /** Defaults this page to readable mode on an unanswered first visit —
+      posts use this, but so can any other long-form/legibility-first page. */
+  defaultReadable?: boolean;
 }
 
-const { title, description, isPostPage = false } = Astro.props;
+const { title, description, defaultReadable = false } = Astro.props;
 ---
 
 <!doctype html>
-<html lang="en" data-post-page={isPostPage ? 'true' : 'false'}>
+<html lang="en" data-default-readable={defaultReadable ? 'true' : 'false'}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -30,16 +31,16 @@ const { title, description, isPostPage = false } = Astro.props;
       (function () {
         try {
           var html = document.documentElement;
-          var isPost = html.getAttribute('data-post-page') === 'true';
+          var defaultReadable = html.getAttribute('data-default-readable') === 'true';
           var aesthetic = localStorage.getItem('aesthetic');
           var brightness = localStorage.getItem('brightness');
           var phosphor = localStorage.getItem('phosphor') || 'green';
 
           if (!aesthetic) {
             // No explicit choice yet (first-visit modal hasn't been
-            // answered) — page-type default, per-post pages read comfortably
-            // even before anyone has decided anything.
-            aesthetic = isPost ? 'readable' : 'cool';
+            // answered) — page-type default, legibility-first pages read
+            // comfortably even before anyone has decided anything.
+            aesthetic = defaultReadable ? 'readable' : 'cool';
           }
           if (!brightness) {
             if (aesthetic === 'readable') {
