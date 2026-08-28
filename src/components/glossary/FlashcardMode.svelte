@@ -60,133 +60,45 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="flashcards">
-  <div class="fc-meta">
+<!--
+  Styles for these classes live in src/styles/global.css (prefixed
+  flashcard-*), not a scoped <style> block here. Astro only extracts CSS
+  for whichever branch of GlossaryTool's mode toggle was present at
+  SSR time — since quiz mode is the default, a scoped stylesheet on this
+  component (the "else" branch, never server-rendered) was silently
+  dropped from the entire build output: not inlined, not linked, not
+  even embedded in the JS bundle for client-side injection. Confirmed by
+  grepping the actual dist/ output. Global CSS always loads regardless of
+  what's conditionally rendered, so it sidesteps the issue entirely.
+-->
+<div class="flashcard-root">
+  <div class="flashcard-meta">
     <span>card {index + 1} of {deck.length}</span>
     <span>{counts.know} know it · {counts.learning} still learning</span>
   </div>
 
-  <button type="button" class="card" class:flipped onclick={flip} aria-label="flip card">
-    <div class="card-inner">
-      <div class="card-face card-front">
-        <span class="card-label">term</span>
-        <span class="card-text">{current.term}</span>
+  <button type="button" class="flashcard-card" class:flipped onclick={flip} aria-label="flip card">
+    <div class="flashcard-card-inner">
+      <div class="flashcard-face flashcard-front">
+        <span class="flashcard-label">term</span>
+        <span class="flashcard-text">{current.term}</span>
       </div>
-      <div class="card-face card-back">
-        <span class="card-label">definition</span>
-        <span class="card-text card-def">{current.definition}</span>
+      <div class="flashcard-face flashcard-back">
+        <span class="flashcard-label">definition</span>
+        <span class="flashcard-text flashcard-def">{current.definition}</span>
       </div>
     </div>
   </button>
-  <p class="hint">tap card to flip · ← → to navigate</p>
+  <p class="flashcard-hint">tap card to flip · ← → to navigate</p>
 
-  <div class="nav-row">
+  <div class="flashcard-nav-row">
     <button type="button" class="secondary" onclick={prev}>&larr; back</button>
     <button type="button" class="secondary" onclick={doShuffle}>shuffle</button>
     <button type="button" class="secondary" onclick={next}>forward &rarr;</button>
   </div>
 
-  <div class="mark-row">
-    <button type="button" class="mark learning" onclick={() => mark('learning')}>still learning</button>
-    <button type="button" class="mark know" onclick={() => mark('know')}>know it</button>
+  <div class="flashcard-mark-row">
+    <button type="button" class="flashcard-mark learning" onclick={() => mark('learning')}>still learning</button>
+    <button type="button" class="flashcard-mark know" onclick={() => mark('know')}>know it</button>
   </div>
 </div>
-
-<style>
-  .fc-meta {
-    display: flex;
-    justify-content: space-between;
-    color: var(--muted-foreground);
-    font-size: 0.85rem;
-    margin-bottom: 0.75rem;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-  }
-
-  .card {
-    display: block;
-    width: 100%;
-    min-height: 14rem;
-    padding: 0;
-    border: 1px solid var(--border);
-    background: var(--card);
-    cursor: pointer;
-    perspective: 1200px;
-  }
-  .card-inner {
-    position: relative;
-    width: 100%;
-    height: 14rem;
-    transition: transform 0.4s;
-    transform-style: preserve-3d;
-    -webkit-transform-style: preserve-3d;
-  }
-  .card.flipped .card-inner {
-    transform: rotateY(180deg);
-    -webkit-transform: rotateY(180deg);
-  }
-  .card-face {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.75rem;
-    padding: 1.5rem;
-    backface-visibility: hidden;
-    -webkit-backface-visibility: hidden;
-    text-align: center;
-  }
-  .card-back {
-    transform: rotateY(180deg);
-    -webkit-transform: rotateY(180deg);
-  }
-  .card-label {
-    font-size: 0.8rem;
-    color: var(--muted-foreground);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-  }
-  .card-text {
-    font-size: 1.4rem;
-    font-weight: 700;
-    color: var(--card-foreground);
-  }
-  .card-def {
-    font-size: 1.05rem;
-    font-weight: 400;
-    line-height: 1.5;
-  }
-
-  .hint {
-    text-align: center;
-    color: var(--muted-foreground);
-    font-size: 0.8rem;
-    margin: 0.5rem 0 1.25rem;
-  }
-
-  .nav-row, .mark-row {
-    display: flex;
-    gap: 0.6rem;
-    margin-bottom: 0.75rem;
-  }
-  .nav-row button, .mark-row button {
-    flex: 1;
-    padding: 0.7em 0.5em;
-    border: 1px solid var(--border);
-    cursor: pointer;
-    font: inherit;
-    font-size: 0.9rem;
-    background: var(--secondary);
-    color: var(--secondary-foreground);
-  }
-  .mark.learning { border-color: var(--destructive); }
-  .mark.know { border-color: var(--primary); }
-  .mark.know:hover { background: color-mix(in oklch, var(--primary) 18%, var(--secondary)); }
-  .mark.learning:hover { background: color-mix(in oklch, var(--destructive) 18%, var(--secondary)); }
-
-  @media (prefers-reduced-motion: reduce) {
-    .card-inner { transition: none; }
-  }
-</style>
