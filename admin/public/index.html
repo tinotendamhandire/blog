@@ -120,6 +120,82 @@
     font-size: 0.85em;
   }
   #files-empty { padding: 0.6em; color: var(--muted-foreground); font-size: 0.85em; }
+
+  #mode-toggle {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    margin-bottom: 1rem;
+  }
+  #mode-toggle button {
+    padding: 0.5em;
+    background: var(--muted);
+    color: var(--foreground);
+    border: 0;
+    font-size: 0.9rem;
+  }
+  #mode-toggle button[aria-pressed="true"] {
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
+
+  #album-list { list-style: none; margin: 0; padding: 0; }
+  #album-list li {
+    border: 1px solid var(--border);
+    margin-bottom: 0.4em;
+    padding: 0.5em;
+    cursor: pointer;
+  }
+  #album-list li:hover { background: var(--muted); }
+  #album-list .count { display: block; font-size: 0.85em; color: var(--muted-foreground); }
+
+  #album-editor { padding: 1.5rem; overflow-y: auto; }
+  #album-editor input[type="text"] { width: 100%; }
+
+  #track-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 0.75em; }
+  #track-table th, #track-table td {
+    border: 1px solid var(--border);
+    padding: 0.5em;
+    text-align: left;
+    vertical-align: top;
+  }
+  #track-table th { background: var(--muted); font-weight: 700; }
+  #track-table input[type="text"], #track-table select {
+    width: 100%;
+    font-size: 0.9em;
+    padding: 0.3em 0.4em;
+  }
+  #track-table .col-assets { min-width: 11rem; }
+  #track-table .remove-track {
+    background: var(--destructive);
+    color: #200;
+    padding: 0.3em 0.5em;
+    font-size: 0.85em;
+  }
+
+  .asset-slot {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3em;
+    margin: 0.15em 0.3em 0.15em 0;
+    padding: 0.2em 0.45em;
+    border: 1px solid var(--border);
+    font-size: 0.8em;
+    background: var(--muted);
+  }
+  .asset-slot.filled { border-color: var(--primary); color: var(--primary); }
+  .asset-slot a { color: inherit; text-decoration: none; }
+  .asset-slot .remove-asset {
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    padding: 0;
+    font: inherit;
+    font-weight: 700;
+  }
 </style>
 </head>
 <body>
@@ -133,10 +209,23 @@
 
 <div id="app">
   <div id="sidebar">
-    <h1>posts</h1>
-    <button id="new-btn" style="width:100%; margin-bottom:0.75em;">+ new post</button>
-    <input type="text" id="post-filter" placeholder="filter by title or tag..." autocomplete="off" />
-    <ul id="post-list"></ul>
+    <div id="mode-toggle">
+      <button type="button" id="mode-posts-btn" aria-pressed="true">posts</button>
+      <button type="button" id="mode-albums-btn" aria-pressed="false">albums</button>
+    </div>
+
+    <div id="posts-panel">
+      <h1>posts</h1>
+      <button id="new-btn" style="width:100%; margin-bottom:0.75em;">+ new post</button>
+      <input type="text" id="post-filter" placeholder="filter by title or tag..." autocomplete="off" />
+      <ul id="post-list"></ul>
+    </div>
+
+    <div id="albums-panel" style="display:none;">
+      <h1>albums</h1>
+      <button id="new-album-btn" style="width:100%; margin-bottom:0.75em;">+ new album</button>
+      <ul id="album-list"></ul>
+    </div>
   </div>
   <div id="editor">
     <label>slug (permanent — this is the only URL to the post)</label>
@@ -180,6 +269,37 @@
       <button id="logout-btn" class="secondary">log out</button>
     </div>
     <div id="status"></div>
+  </div>
+
+  <div id="album-editor" style="display:none;">
+    <label>slug (permanent — this is the only URL to the album)</label>
+    <input type="text" id="a-slug" placeholder="album-slug" />
+
+    <label>title</label>
+    <input type="text" id="a-title" />
+
+    <table id="track-table">
+      <thead>
+        <tr>
+          <th>title</th>
+          <th>status</th>
+          <th class="col-assets">assets</th>
+          <th>notes</th>
+          <th>linked posts</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="track-tbody"></tbody>
+    </table>
+    <button type="button" id="add-track-btn" style="margin-top:0.75em;">+ add track</button>
+
+    <div class="actions">
+      <button id="album-save-btn">save</button>
+      <button id="album-publish-btn" class="secondary">publish (commit + push)</button>
+      <button id="album-delete-btn" class="danger" style="display:none;">delete</button>
+      <button id="album-logout-btn" class="secondary">log out</button>
+    </div>
+    <div id="album-status"></div>
   </div>
 </div>
 
@@ -445,6 +565,258 @@
       if (filesLoaded) await loadFiles();
     } catch (err) {
       $('upload-result').textContent = `upload failed: ${err.message}`;
+    }
+  });
+
+  // ── Albums / track tracker ──────────────────────────────────────────
+
+  const ASSET_TYPES = ['stems', 'artwork', 'lyrics', 'tab', 'sheet'];
+  let mode = 'posts'; // 'posts' | 'albums'
+  let allAlbums = [];
+  let albumsLoaded = false;
+  let currentAlbumSlug = null; // null = new album
+  let currentTracks = [];
+
+  function setMode(next) {
+    mode = next;
+    $('mode-posts-btn').setAttribute('aria-pressed', String(mode === 'posts'));
+    $('mode-albums-btn').setAttribute('aria-pressed', String(mode === 'albums'));
+    $('posts-panel').style.display = mode === 'posts' ? 'block' : 'none';
+    $('albums-panel').style.display = mode === 'albums' ? 'block' : 'none';
+    $('editor').style.display = mode === 'posts' ? 'block' : 'none';
+    $('album-editor').style.display = mode === 'albums' ? 'block' : 'none';
+    if (mode === 'albums' && !albumsLoaded) {
+      albumsLoaded = true;
+      loadAlbums();
+    }
+  }
+  $('mode-posts-btn').addEventListener('click', () => setMode('posts'));
+  $('mode-albums-btn').addEventListener('click', () => setMode('albums'));
+  $('album-logout-btn').addEventListener('click', logout);
+
+  async function loadAlbums() {
+    const res = await api('/admin/api/albums');
+    allAlbums = await res.json();
+    renderAlbumList();
+  }
+
+  function renderAlbumList() {
+    const list = $('album-list');
+    list.innerHTML = '';
+    if (allAlbums.length === 0) {
+      list.innerHTML = '<li id="files-empty">no albums yet</li>';
+      return;
+    }
+    for (const a of allAlbums) {
+      const li = document.createElement('li');
+      li.innerHTML = `${a.title}<span class="count">${a.trackCount} track${a.trackCount === 1 ? '' : 's'}</span>`;
+      li.addEventListener('click', () => loadAlbum(a.slug));
+      list.appendChild(li);
+    }
+  }
+
+  function clearAlbumEditor() {
+    currentAlbumSlug = null;
+    currentTracks = [];
+    $('a-slug').disabled = false;
+    $('a-slug').value = '';
+    $('a-title').value = '';
+    $('album-delete-btn').style.display = 'none';
+    $('album-status').textContent = '';
+    renderTrackTable();
+  }
+
+  $('new-album-btn').addEventListener('click', clearAlbumEditor);
+
+  async function loadAlbum(slug) {
+    const res = await api(`/admin/api/albums/${slug}`);
+    if (!res.ok) return;
+    const a = await res.json();
+    currentAlbumSlug = slug;
+    currentTracks = a.tracks || [];
+    $('a-slug').value = a.slug;
+    $('a-slug').disabled = true;
+    $('a-title').value = a.title;
+    $('album-delete-btn').style.display = 'inline-block';
+    $('album-status').textContent = '';
+    renderTrackTable();
+  }
+
+  function newTrack() {
+    return { id: Math.random().toString(36).slice(2, 10), title: '', status: 'idea', assets: {}, notes: '', linkedPosts: [] };
+  }
+
+  $('add-track-btn').addEventListener('click', () => {
+    currentTracks.push(newTrack());
+    renderTrackTable();
+  });
+
+  function renderTrackTable() {
+    const tbody = $('track-tbody');
+    tbody.innerHTML = '';
+    currentTracks.forEach((track, index) => {
+      const tr = document.createElement('tr');
+
+      const titleTd = document.createElement('td');
+      const titleInput = document.createElement('input');
+      titleInput.type = 'text';
+      titleInput.value = track.title || '';
+      titleInput.addEventListener('input', (e) => { track.title = e.target.value; });
+      titleTd.appendChild(titleInput);
+
+      const statusTd = document.createElement('td');
+      const statusSelect = document.createElement('select');
+      for (const s of ['idea', 'tracking', 'mixing', 'mastering', 'done']) {
+        const opt = document.createElement('option');
+        opt.value = s;
+        opt.textContent = s;
+        if (track.status === s) opt.selected = true;
+        statusSelect.appendChild(opt);
+      }
+      statusSelect.addEventListener('change', (e) => { track.status = e.target.value; });
+      statusTd.appendChild(statusSelect);
+
+      const assetsTd = document.createElement('td');
+      assetsTd.className = 'col-assets';
+      for (const type of ASSET_TYPES) {
+        const slot = document.createElement('span');
+        const asset = track.assets && track.assets[type];
+        if (asset) {
+          slot.className = 'asset-slot filled';
+          const a = document.createElement('a');
+          a.href = asset.url;
+          a.target = '_blank';
+          a.rel = 'noopener';
+          a.textContent = type;
+          const removeBtn = document.createElement('button');
+          removeBtn.type = 'button';
+          removeBtn.className = 'remove-asset';
+          removeBtn.textContent = '×';
+          removeBtn.addEventListener('click', () => {
+            delete track.assets[type];
+            renderTrackTable();
+          });
+          slot.append(a, removeBtn);
+        } else {
+          slot.className = 'asset-slot';
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'remove-asset';
+          btn.textContent = `+ ${type}`;
+          btn.addEventListener('click', () => uploadTrackAsset(track, type));
+          slot.appendChild(btn);
+        }
+        assetsTd.appendChild(slot);
+      }
+
+      const notesTd = document.createElement('td');
+      const notesInput = document.createElement('input');
+      notesInput.type = 'text';
+      notesInput.value = track.notes || '';
+      notesInput.placeholder = 'needs: ...';
+      notesInput.addEventListener('input', (e) => { track.notes = e.target.value; });
+      notesTd.appendChild(notesInput);
+
+      const linkedTd = document.createElement('td');
+      const linkedInput = document.createElement('input');
+      linkedInput.type = 'text';
+      linkedInput.value = (track.linkedPosts || []).join(', ');
+      linkedInput.placeholder = 'post-slug, post-slug';
+      linkedInput.addEventListener('input', (e) => {
+        track.linkedPosts = e.target.value.split(',').map((s) => s.trim()).filter(Boolean);
+      });
+      linkedTd.appendChild(linkedInput);
+
+      const removeTd = document.createElement('td');
+      const removeTrackBtn = document.createElement('button');
+      removeTrackBtn.type = 'button';
+      removeTrackBtn.className = 'remove-track';
+      removeTrackBtn.textContent = 'remove';
+      removeTrackBtn.addEventListener('click', () => {
+        currentTracks.splice(index, 1);
+        renderTrackTable();
+      });
+      removeTd.appendChild(removeTrackBtn);
+
+      tr.append(titleTd, statusTd, assetsTd, notesTd, linkedTd, removeTd);
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function uploadTrackAsset(track, type) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.addEventListener('change', async () => {
+      const file = input.files[0];
+      if (!file) return;
+      $('album-status').textContent = `uploading ${type}…`;
+      const fd = new FormData();
+      fd.append('file', file);
+      try {
+        const res = await api('/admin/api/upload', { method: 'POST', body: fd });
+        if (!res.ok) throw new Error(await res.text());
+        const { url } = await res.json();
+        track.assets = track.assets || {};
+        track.assets[type] = { url, originalName: file.name };
+        $('album-status').textContent = '';
+        renderTrackTable();
+      } catch (err) {
+        $('album-status').textContent = `upload failed: ${err.message}`;
+      }
+    });
+    input.click();
+  }
+
+  async function doSaveAlbum() {
+    const slug = $('a-slug').value.trim();
+    if (!/^[a-z0-9-]{1,80}$/.test(slug)) {
+      $('album-status').textContent = 'slug must be lowercase letters, numbers, hyphens only';
+      return null;
+    }
+    const payload = { title: $('a-title').value.trim(), tracks: currentTracks };
+    const res = await api(`/admin/api/albums/${slug}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      $('album-status').textContent = 'saved (not published yet).';
+      currentAlbumSlug = slug;
+      $('a-slug').disabled = true;
+      $('album-delete-btn').style.display = 'inline-block';
+      await loadAlbums();
+      return slug;
+    } else {
+      $('album-status').textContent = `save failed: ${await res.text()}`;
+      return null;
+    }
+  }
+
+  $('album-save-btn').addEventListener('click', doSaveAlbum);
+
+  $('album-publish-btn').addEventListener('click', async () => {
+    const slug = await doSaveAlbum();
+    if (!slug) return;
+    $('album-status').textContent = 'publishing…';
+    try {
+      const res = await api(`/admin/api/albums/${slug}/publish`, { method: 'POST' });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      $('album-status').textContent = data.published
+        ? 'published — committed and pushed, deploy running now.'
+        : 'nothing to publish (already up to date).';
+    } catch (err) {
+      $('album-status').textContent = `publish failed: ${err.message}`;
+    }
+  });
+
+  $('album-delete-btn').addEventListener('click', async () => {
+    if (!currentAlbumSlug) return;
+    if (!confirm(`Delete album "${currentAlbumSlug}"? This can't be undone here (though it's still in git history once published).`)) return;
+    const res = await api(`/admin/api/albums/${currentAlbumSlug}`, { method: 'DELETE' });
+    if (res.ok) {
+      await loadAlbums();
+      clearAlbumEditor();
     }
   });
 

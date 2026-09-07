@@ -14,6 +14,7 @@ import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 
 const CONTENT_DIR = process.env.CONTENT_DIR || './content';
+const ALBUMS_DIR = process.env.ALBUMS_DIR || './albums';
 const PORT = Number(process.env.PORT || 3100);
 const ADMIN_SECRET = process.env.ADMIN_SECRET;
 const FILE_HOST_URL = process.env.FILE_HOST_URL; // e.g. http://file-host:3000
@@ -29,6 +30,7 @@ if (!ADMIN_SECRET) {
 }
 
 await mkdir(CONTENT_DIR, { recursive: true });
+await mkdir(ALBUMS_DIR, { recursive: true });
 
 const MEDIA_IMPORT = "import Media from '../../components/Media.astro';\n\n";
 const SLUG_RE = /^[a-z0-9-]{1,80}$/;
@@ -68,6 +70,24 @@ async function findPostFile(slug) {
 
 function git(args) {
   return execFileSync('git', ['-C', REPO_DIR, ...args], { encoding: 'utf8' });
+}
+
+// Shared by the post and album Publish endpoints: git add/commit/push
+// scoped to exactly one file, no-ops cleanly if there's nothing new.
+function publishFile(relPath, commitMessage) {
+  git(['add', relPath]);
+  const status = git(['status', '--porcelain', '--', relPath]);
+  if (!status.trim()) {
+    return { published: false, message: 'nothing to publish — already up to date' };
+  }
+  git([
+    '-c', `user.name=${GIT_AUTHOR_NAME}`,
+    '-c', `user.email=${GIT_AUTHOR_EMAIL}`,
+    'commit', '-m', commitMessage, '--', relPath,
+  ]);
+  const authHeader = `Authorization: Basic ${Buffer.from(`x-access-token:${GITHUB_TOKEN}`).toString('base64')}`;
+  git(['-c', `http.extraheader=${authHeader}`, 'push', 'origin', 'HEAD:main']);
+  return { published: true };
 }
 
 const app = new Hono();
@@ -189,19 +209,92 @@ app.post('/admin/api/publish/:slug', async (c) => {
   const relPath = path.relative(REPO_DIR, path.join(CONTENT_DIR, file));
 
   try {
-    git(['add', relPath]);
-    const status = git(['status', '--porcelain', '--', relPath]);
-    if (!status.trim()) {
-      return c.json({ ok: true, published: false, message: 'nothing to publish — already up to date' });
-    }
-    git([
-      '-c', `user.name=${GIT_AUTHOR_NAME}`,
-      '-c', `user.email=${GIT_AUTHOR_EMAIL}`,
-      'commit', '-m', `publish: ${slug}`, '--', relPath,
-    ]);
-    const authHeader = `Authorization: Basic ${Buffer.from(`x-access-token:${GITHUB_TOKEN}`).toString('base64')}`;
-    git(['-c', `http.extraheader=${authHeader}`, 'push', 'origin', 'HEAD:main']);
-    return c.json({ ok: true, published: true });
+    const result = publishFile(relPath, `publish: ${slug}`);
+    return c.json({ ok: true, ...result });
+  } catch (err) {
+    return c.text(`Publish failed: ${err.message}`, 500);
+  }
+});
+
+// ── Albums / track tracker ──────────────────────────────────────────────
+// One JSON file per album under ALBUMS_DIR (src/content/albums/ in the
+// real checkout). Admin-only — nothing on the public site reads these,
+// this is purely a private production-tracking tool. Same Save (local
+// write) / Publish (commit+push, via the shared publishFile helper)
+// split as posts.
+
+app.get('/admin/api/albums', async (c) => {
+  if (!requireAuth(c)) return c.text('Unauthorized', 401);
+  const files = (await readdir(ALBUMS_DIR)).filter((f) => f.endsWith('.json'));
+  const albums = await Promise.all(
+    files.map(async (file) => {
+      const raw = await readFile(path.join(ALBUMS_DIR, file), 'utf8');
+      const data = JSON.parse(raw);
+      return {
+        slug: file.replace(/\.json$/, ''),
+        title: data.title || '(untitled)',
+        trackCount: (data.tracks || []).length,
+      };
+    }),
+  );
+  albums.sort((a, b) => a.title.localeCompare(b.title));
+  return c.json(albums);
+});
+
+app.get('/admin/api/albums/:slug', async (c) => {
+  if (!requireAuth(c)) return c.text('Unauthorized', 401);
+  const slug = c.req.param('slug');
+  if (!SLUG_RE.test(slug)) return c.text('Bad slug', 400);
+  try {
+    const raw = await readFile(path.join(ALBUMS_DIR, `${slug}.json`), 'utf8');
+    return c.json({ slug, ...JSON.parse(raw) });
+  } catch {
+    return c.text('Not found', 404);
+  }
+});
+
+app.put('/admin/api/albums/:slug', async (c) => {
+  if (!requireAuth(c)) return c.text('Unauthorized', 401);
+  const slug = c.req.param('slug');
+  if (!SLUG_RE.test(slug)) return c.text('Bad slug', 400);
+  const { title, tracks } = await c.req.json();
+  if (!title) return c.text('title is required', 400);
+  const data = { title, tracks: Array.isArray(tracks) ? tracks : [] };
+  await writeFile(path.join(ALBUMS_DIR, `${slug}.json`), JSON.stringify(data, null, 2) + '\n');
+  return c.json({ ok: true, slug });
+});
+
+app.delete('/admin/api/albums/:slug', async (c) => {
+  if (!requireAuth(c)) return c.text('Unauthorized', 401);
+  const slug = c.req.param('slug');
+  if (!SLUG_RE.test(slug)) return c.text('Bad slug', 400);
+  const file = path.join(ALBUMS_DIR, `${slug}.json`);
+  try {
+    await readFile(file);
+  } catch {
+    return c.text('Not found', 404);
+  }
+  await rm(file);
+  return c.json({ ok: true });
+});
+
+app.post('/admin/api/albums/:slug/publish', async (c) => {
+  if (!requireAuth(c)) return c.text('Unauthorized', 401);
+  if (!REPO_DIR || !GITHUB_TOKEN) {
+    return c.text('Publish not configured (REPO_DIR/GITHUB_TOKEN missing)', 501);
+  }
+  const slug = c.req.param('slug');
+  if (!SLUG_RE.test(slug)) return c.text('Bad slug', 400);
+  const file = path.join(ALBUMS_DIR, `${slug}.json`);
+  try {
+    await readFile(file);
+  } catch {
+    return c.text('Not found', 404);
+  }
+  const relPath = path.relative(REPO_DIR, file);
+  try {
+    const result = publishFile(relPath, `publish album: ${slug}`);
+    return c.json({ ok: true, ...result });
   } catch (err) {
     return c.text(`Publish failed: ${err.message}`, 500);
   }

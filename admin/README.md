@@ -45,6 +45,15 @@ rather than automatic.
   pattern as upload. `file-host` itself still has no *public* listing —
   these two routes are gated behind `ADMIN_SECRET` same as everything
   else here.
+- `GET/PUT/DELETE /admin/api/albums/:slug` (+ `GET /admin/api/albums` to
+  list) and `POST /admin/api/albums/:slug/publish` — the album/track
+  tracker, a second "posts" tab in the UI. One JSON file per album under
+  `ALBUMS_DIR` (`src/content/albums/` in the real checkout), same
+  Save/Publish split as posts, same `publishFile` helper under the hood.
+  It's admin-only and stays that way — nothing on the public site reads
+  these files, this is purely a private production-tracking tool (status
+  per track, asset slots pointing at file-host uploads, notes, linked
+  post slugs).
 
 ## Setting up the publish token
 

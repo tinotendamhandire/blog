@@ -19,6 +19,7 @@ RUN git config --system --add safe.directory /app/repo
 
 ENV PORT=3100
 ENV CONTENT_DIR=/app/repo/src/content/notes
+ENV ALBUMS_DIR=/app/repo/src/content/albums
 ENV REPO_DIR=/app/repo
 VOLUME ["/app/repo"]
 EXPOSE 3100
