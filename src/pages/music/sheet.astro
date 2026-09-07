@@ -1,0 +1,30 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import MusicList from '../../components/MusicList.astro';
+---
+
+<Layout title="Sheet Music — blog.tinotenda.xyz">
+  <main class="music-page">
+    <h1>Sheet Music</h1>
+    <p class="intro">Written scores.</p>
+    <MusicList tag="sheet" emptyLabel="Nothing tagged sheet yet." />
+  </main>
+</Layout>
+
+<style>
+  .music-page {
+    max-width: 44rem;
+    margin: 0 auto;
+    padding: 2.5rem 1.25rem 5rem;
+  }
+  h1 {
+    font-size: 1.6rem;
+    margin: 0 0 0.5rem;
+    text-align: center;
+  }
+  .intro {
+    color: var(--muted-foreground);
+    text-align: center;
+    margin: 0 auto 2rem;
+  }
+</style>

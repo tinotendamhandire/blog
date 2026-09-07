@@ -1,0 +1,80 @@
+---
+// Shared list rendering for the /music/* pages. Filters posts tagged
+// `music` AND the given sub-tag (`sheet`, `demo`, etc.) — self-contained,
+// queries the collection itself so each page just picks a tag.
+import { getCollection } from 'astro:content';
+
+interface Props {
+  tag: string;
+  emptyLabel?: string;
+}
+
+const { tag, emptyLabel = 'Nothing here yet.' } = Astro.props;
+
+const posts = (
+  await getCollection('notes', ({ data }) => !data.draft && data.tags?.includes('music') && data.tags?.includes(tag))
+).sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+---
+
+{posts.length === 0 && <p class="empty">{emptyLabel}</p>}
+
+<ul class="music-list">
+  {posts.map((post) => (
+    <li>
+      <a href={`/notes/${post.id}/`}>
+        <span class="music-title">{post.data.title}</span>
+        <span class="music-date">
+          {post.data.date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+        </span>
+      </a>
+      {post.data.tags && post.data.tags.filter((t) => t !== 'music' && t !== tag).length > 0 && (
+        <span class="music-tags">
+          {post.data.tags.filter((t) => t !== 'music' && t !== tag).join(', ')}
+        </span>
+      )}
+    </li>
+  ))}
+</ul>
+
+<style>
+  .empty {
+    text-align: center;
+    color: var(--muted-foreground);
+    padding: 2rem 0;
+  }
+  .music-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .music-list li {
+    border: 1px solid var(--border);
+    margin-bottom: 0.6rem;
+    padding: 0.9em 1em;
+  }
+  .music-list a {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    text-decoration: none;
+    color: var(--foreground);
+  }
+  .music-list a:hover .music-title {
+    color: var(--link);
+  }
+  .music-title {
+    font-weight: 700;
+  }
+  .music-date {
+    flex-shrink: 0;
+    font-size: 0.85em;
+    color: var(--muted-foreground);
+  }
+  .music-tags {
+    display: block;
+    margin-top: 0.35em;
+    font-size: 0.8em;
+    color: var(--muted-foreground);
+  }
+</style>
