@@ -1,6 +1,12 @@
 ---
 // In-browser audio/video playback for uploaded files inside posts, e.g.:
 //   <Media src="https://blog.tinotenda.xyz/files/abc123" kind="video" />
+// Renders a custom player rather than native <video controls>/<audio
+// controls> — browsers won't let CSS meaningfully restyle native media
+// chrome (Firefox especially), and it never matched the site regardless
+// of theme.
+import MediaPlayer from './MediaPlayer.svelte';
+
 interface Props {
   src: string;
   kind: 'video' | 'audio';
@@ -11,13 +17,7 @@ const { src, kind, caption } = Astro.props;
 ---
 
 <figure class="post-media-figure">
-  {
-    kind === 'video' ? (
-      <video class="post-media" src={src} controls preload="metadata" />
-    ) : (
-      <audio class="post-media" src={src} controls preload="metadata" />
-    )
-  }
+  <MediaPlayer client:load {src} {kind} />
   {caption && <figcaption>{caption}</figcaption>}
 </figure>
 

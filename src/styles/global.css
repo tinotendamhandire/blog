@@ -328,7 +328,7 @@ html[data-aesthetic="cool"] .crt-cursor {
    Comfort measure and rhythm for post bodies. Applied via the `.prose`
    class (typography plugin) on post content when data-aesthetic=readable. */
 html[data-aesthetic="readable"] .prose {
-  max-width: 70ch;
+  max-width: 85ch;
   line-height: 1.75;
   --tw-prose-body: var(--foreground);
   --tw-prose-headings: var(--foreground);
@@ -342,9 +342,11 @@ html[data-aesthetic="readable"] .prose {
   --tw-prose-hr: var(--border);
   --tw-prose-th-borders: var(--border);
   --tw-prose-td-borders: var(--border);
+  --tw-prose-bullets: var(--muted-foreground);
+  --tw-prose-counters: var(--muted-foreground);
 }
 html[data-aesthetic="cool"] .prose {
-  max-width: 75ch;
+  max-width: 90ch;
   --tw-prose-body: var(--foreground);
   --tw-prose-headings: var(--foreground);
   --tw-prose-links: var(--link);
@@ -357,17 +359,59 @@ html[data-aesthetic="cool"] .prose {
   --tw-prose-hr: var(--border);
   --tw-prose-th-borders: var(--border);
   --tw-prose-td-borders: var(--border);
+  --tw-prose-bullets: var(--muted-foreground);
+  --tw-prose-counters: var(--muted-foreground);
 }
 
-/* In-browser media playback inside posts (audio/video uploads). */
-.post-media {
-  display: block;
-  width: 100%;
-  max-width: 100%;
-  margin: 1.5em 0;
+/* ── Prose structure ──────────────────────────────────────────────────
+   The --tw-prose-* vars above only cover colour. Typography's defaults
+   for shape (rounded corners on code/pre, decorative quote marks, no
+   table grid lines) don't match the rest of the site — square corners,
+   hairline borders everywhere — so those need overriding directly,
+   regardless of aesthetic mode. */
+.prose :where(code):not(:where(pre code)) {
+  background: var(--muted);
   border: 1px solid var(--border);
-  background: var(--card);
+  border-radius: 0;
+  padding: 0.15em 0.4em;
+  font-weight: 400;
 }
+.prose :where(code):not(:where(pre code))::before,
+.prose :where(code):not(:where(pre code))::after {
+  content: none; /* drop typography's default backtick glyphs */
+}
+.prose :where(pre) {
+  border: 1px solid var(--border);
+  border-radius: 0;
+}
+.prose :where(blockquote) {
+  border-left-width: 2px;
+  font-style: normal;
+  padding-left: 1em;
+}
+.prose :where(blockquote p:first-of-type)::before,
+.prose :where(blockquote p:last-of-type)::after {
+  content: none; /* drop typography's default smart-quote glyphs */
+}
+.prose :where(hr) {
+  border: none;
+  border-top: 1px solid var(--border);
+}
+.prose :where(table) {
+  border-collapse: collapse;
+  width: 100%;
+}
+.prose :where(th, td) {
+  border: 1px solid var(--border);
+  padding: 0.5em 0.75em;
+}
+.prose :where(thead th) {
+  background: var(--muted);
+}
+.prose :where(img) {
+  border: 1px solid var(--border);
+}
+
 
 /* Glossary study tool — flashcard mode. Global rather than a scoped
    component <style> block on purpose: it's the "else" branch of a mode
