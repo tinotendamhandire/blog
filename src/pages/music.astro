@@ -1,0 +1,97 @@
+---
+// The one deliberate exception to "nothing here is discoverable": a
+// listing, but scoped to posts tagged `music` only, and still unlinked
+// from anywhere on the site (index.astro, nav — there is none) and still
+// noindex/robots-disallowed like every other page. "Public" here means
+// "browsable once you have this one URL," not "findable by anyone."
+import { getCollection } from 'astro:content';
+import Layout from '../layouts/Layout.astro';
+
+const posts = (await getCollection('notes', ({ data }) => !data.draft && data.tags?.includes('music')))
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+---
+
+<Layout title="Music — blog.tinotenda.xyz">
+  <main class="music-page">
+    <h1>Music</h1>
+    <p class="intro">Demos, sheet music, and everything else that's actually meant to be found.</p>
+
+    {posts.length === 0 && <p class="empty">Nothing tagged yet.</p>}
+
+    <ul class="music-list">
+      {posts.map((post) => (
+        <li>
+          <a href={`/notes/${post.id}/`}>
+            <span class="music-title">{post.data.title}</span>
+            <span class="music-date">
+              {post.data.date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+            </span>
+          </a>
+          {post.data.tags && post.data.tags.length > 1 && (
+            <span class="music-tags">
+              {post.data.tags.filter((t) => t !== 'music').join(', ')}
+            </span>
+          )}
+        </li>
+      ))}
+    </ul>
+  </main>
+</Layout>
+
+<style>
+  .music-page {
+    max-width: 44rem;
+    margin: 0 auto;
+    padding: 2.5rem 1.25rem 5rem;
+  }
+  h1 {
+    font-size: 1.6rem;
+    margin: 0 0 0.5rem;
+    text-align: center;
+  }
+  .intro {
+    color: var(--muted-foreground);
+    text-align: center;
+    margin: 0 auto 2rem;
+  }
+  .empty {
+    text-align: center;
+    color: var(--muted-foreground);
+    padding: 2rem 0;
+  }
+  .music-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .music-list li {
+    border: 1px solid var(--border);
+    margin-bottom: 0.6rem;
+    padding: 0.9em 1em;
+  }
+  .music-list a {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    text-decoration: none;
+    color: var(--foreground);
+  }
+  .music-list a:hover .music-title {
+    color: var(--link);
+  }
+  .music-title {
+    font-weight: 700;
+  }
+  .music-date {
+    flex-shrink: 0;
+    font-size: 0.85em;
+    color: var(--muted-foreground);
+  }
+  .music-tags {
+    display: block;
+    margin-top: 0.35em;
+    font-size: 0.8em;
+    color: var(--muted-foreground);
+  }
+</style>

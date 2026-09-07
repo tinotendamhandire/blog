@@ -85,6 +85,8 @@
   #post-list li:hover { background: var(--muted); }
   #post-list li.draft { color: var(--muted-foreground); }
   #post-list .date { display: block; font-size: 0.85em; color: var(--muted-foreground); }
+  #post-list .tags { display: block; font-size: 0.8em; color: var(--primary); margin-top: 0.2em; }
+  #post-filter { width: 100%; margin-bottom: 0.75em; }
 
   #editor { padding: 1.5rem; overflow-y: auto; }
   #editor input[type="text"], #editor input[type="date"] { width: 100%; }
@@ -133,6 +135,7 @@
   <div id="sidebar">
     <h1>posts</h1>
     <button id="new-btn" style="width:100%; margin-bottom:0.75em;">+ new post</button>
+    <input type="text" id="post-filter" placeholder="filter by title or tag..." autocomplete="off" />
     <ul id="post-list"></ul>
   </div>
   <div id="editor">
@@ -184,6 +187,7 @@
   const $ = (id) => document.getElementById(id);
   let secret = null;
   let currentSlug = null; // null = new post
+  let allPosts = [];
 
   async function api(path, opts = {}) {
     const res = await fetch(path, {
@@ -230,17 +234,37 @@
 
   async function loadPosts() {
     const res = await api('/admin/api/posts');
-    const posts = await res.json();
+    allPosts = await res.json();
+    renderPostList();
+  }
+
+  function renderPostList() {
+    const query = $('post-filter').value.trim().toLowerCase();
+    const posts = query
+      ? allPosts.filter(
+          (p) =>
+            p.title.toLowerCase().includes(query) ||
+            (p.tags || []).some((t) => t.toLowerCase().includes(query)),
+        )
+      : allPosts;
+
     const list = $('post-list');
     list.innerHTML = '';
+    if (posts.length === 0) {
+      list.innerHTML = '<li id="files-empty">no posts match</li>';
+      return;
+    }
     for (const p of posts) {
       const li = document.createElement('li');
       li.className = p.draft ? 'draft' : '';
-      li.innerHTML = `${p.title}<span class="date">${p.date}${p.draft ? ' · draft' : ''}</span>`;
+      const tags = (p.tags || []).join(', ');
+      li.innerHTML = `${p.title}<span class="date">${p.date}${p.draft ? ' · draft' : ''}</span>${tags ? `<span class="tags">${tags}</span>` : ''}`;
       li.addEventListener('click', () => loadPost(p.slug));
       list.appendChild(li);
     }
   }
+
+  $('post-filter').addEventListener('input', renderPostList);
 
   function clearEditor() {
     currentSlug = null;
