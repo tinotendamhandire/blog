@@ -116,6 +116,10 @@
         <svg viewBox="0 0 16 16" width="13" height="13"><path d="M2 6 V2 H6 M10 2 H14 V6 M14 10 V14 H10 M6 14 H2 V10" stroke="currentColor" stroke-width="1.5" fill="none" /></svg>
       </button>
     {/if}
+
+    <a class="media-btn media-download" href={src} download aria-label="download">
+      <svg viewBox="0 0 16 16" width="14" height="14"><path d="M8 2 V9 M5 6 L8 9 L11 6" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round" /><path d="M3 12.5 H13" stroke="currentColor" stroke-width="1.5" /></svg>
+    </a>
   </div>
 </div>
 
@@ -147,6 +151,7 @@
   }
 
   .media-btn {
+    box-sizing: border-box;
     flex-shrink: 0;
     display: flex;
     align-items: center;
@@ -158,6 +163,7 @@
     background: var(--secondary);
     color: var(--secondary-foreground);
     cursor: pointer;
+    text-decoration: none;
   }
   .media-btn:hover {
     border-color: var(--primary);
