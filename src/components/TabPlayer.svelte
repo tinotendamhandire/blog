@@ -50,6 +50,19 @@
       },
       display: {
         resources: currentResources(),
+        // Reproduced and confirmed with zero other customization (a bare
+        // AlphaTabApi, default settings): at this component's typical
+        // rendering width, alphaTab's default Page layout fits 3+ bars per
+        // row, which compresses each bar enough that a rest glyph and an
+        // adjacent fret number land on top of each other — illegible, not
+        // just tight. stretchForce doesn't fix this (it only adjusts
+        // in-bar spring tension for whatever bar width the row-fit
+        // decision already picked, not the row-fit decision itself).
+        // Forcing fewer bars per row gives each one enough width to lay
+        // out cleanly. 2 was tuned against this post's real file at this
+        // column width — a much sparser or busier score may want a
+        // different value.
+        barsPerRow: 2,
       },
     });
 
