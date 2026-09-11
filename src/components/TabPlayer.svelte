@@ -18,6 +18,18 @@
     return v || fallback;
   }
 
+  function currentResources() {
+    return {
+      staffLineColor: readVar('--border', '#666666'),
+      barSeparatorColor: readVar('--border', '#666666'),
+      mainGlyphColor: readVar('--foreground', '#000000'),
+      secondaryGlyphColor: readVar('--muted-foreground', '#888888'),
+      scoreInfoColor: readVar('--foreground', '#000000'),
+    };
+  }
+
+  let themeObserver = null;
+
   onMount(async () => {
     const { AlphaTabApi } = await import('@coderline/alphatab');
 
@@ -37,17 +49,7 @@
         soundFont: '/soundfont/sonivox.sf3',
       },
       display: {
-        // Matches whichever theme is active at mount time — read once
-        // rather than kept reactive, since the theme rarely changes
-        // mid-read and re-rendering the whole score on toggle isn't
-        // worth the complexity for v1.
-        resources: {
-          staffLineColor: readVar('--border', '#666666'),
-          barSeparatorColor: readVar('--border', '#666666'),
-          mainGlyphColor: readVar('--foreground', '#000000'),
-          secondaryGlyphColor: readVar('--muted-foreground', '#888888'),
-          scoreInfoColor: readVar('--foreground', '#000000'),
-        },
+        resources: currentResources(),
       },
     });
 
@@ -64,9 +66,34 @@
     if (tex) {
       api.tex(tex);
     }
+
+    // The rendered notation's colors are baked in at render time, not CSS
+    // — changing the CSS variables alone (via the theme toggle) does
+    // nothing until alphaTab is explicitly told to re-read settings and
+    // re-render. The cursor/highlight overlays are plain CSS (below) and
+    // update automatically for free.
+    themeObserver = new MutationObserver(() => {
+      if (!api) return;
+      // fillFromJson merges into the *existing* settings instance (and
+      // correctly parses the color strings into real Color objects the
+      // same way construction-time JSON settings do). Replacing
+      // settings.display.resources wholesale with a plain object instead
+      // — the first thing I tried — silently destroyed internal state
+      // (its elementFonts Map) that isn't part of the public JSON shape,
+      // crashing the renderer on the next re-render with "elementFonts is
+      // not iterable". Confirmed by reproducing it, not guessed.
+      api.settings.fillFromJson({ display: { resources: currentResources() } });
+      api.updateSettings();
+      api.render();
+    });
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-aesthetic', 'data-brightness', 'data-phosphor'],
+    });
   });
 
   onDestroy(() => {
+    themeObserver?.disconnect();
     api?.destroy();
   });
 
@@ -127,5 +154,23 @@
     overflow-x: auto;
     padding: 1rem;
     background: var(--background);
+  }
+
+  /* alphaTab creates its playback-cursor elements via raw DOM APIs
+     outside Svelte's template, so they never get Svelte's scoped-style
+     hash — :global() is required, not optional. alphaTab itself ships
+     zero default styling for these (verified in its source: it sets
+     position/size only, no color), so without this the cursor exists in
+     the DOM but is fully invisible. */
+  :global(.at-cursor-bar) {
+    background: color-mix(in oklch, var(--primary) 12%, transparent);
+  }
+  :global(.at-cursor-beat) {
+    background: var(--primary);
+  }
+  :global(.at-highlight),
+  :global(.at-highlight *) {
+    fill: var(--primary) !important;
+    stroke: var(--primary) !important;
   }
 </style>
