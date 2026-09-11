@@ -14,6 +14,7 @@
   "dependencies": {
     "@astrojs/mdx": "^7.0.8",
     "@astrojs/svelte": "^9.0.1",
+    "@coderline/alphatab": "^1.8.4",
     "@tailwindcss/typography": "^0.5.20",
     "@tailwindcss/vite": "^4.3.3",
     "astro": "^7.2.7",
@@ -24,5 +25,8 @@
   },
   "allowScripts": {
     "esbuild": true
+  },
+  "devDependencies": {
+    "@coderline/alphatab-vite": "^1.8.4"
   }
 }

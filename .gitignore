@@ -13,5 +13,10 @@ dist/
 # meant to be committed itself
 /.deploy-context/
 
+# copied fresh from node_modules/@coderline/alphatab/dist into public/ by
+# the alphaTab vite plugin on every build/dev run — not source, don't commit
+/public/font/
+/public/soundfont/
+
 # os
 .DS_Store

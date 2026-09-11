@@ -1,0 +1,31 @@
+---
+// Interactive guitar tab/notation embed for posts, e.g.:
+//   <Tab src="https://blog.tinotenda.xyz/files/abc123" />        (a .gp5/.gpx file)
+//   <Tab tex={`\\title "Riff" . 3.3 3.5 3.3 3.2 |`} />            (hand-written alphaTex)
+// Renders via alphaTab — real notation + tab, playable, not a static image.
+import TabPlayer from './TabPlayer.svelte';
+
+interface Props {
+  src?: string;
+  tex?: string;
+  caption?: string;
+}
+
+const { src, tex, caption } = Astro.props;
+---
+
+<figure class="post-tab-figure">
+  <TabPlayer client:load {src} {tex} />
+  {caption && <figcaption>{caption}</figcaption>}
+</figure>
+
+<style>
+  .post-tab-figure {
+    margin: 1.5em 0;
+  }
+  figcaption {
+    margin-top: 0.4em;
+    font-size: 0.85em;
+    color: var(--muted-foreground);
+  }
+</style>
